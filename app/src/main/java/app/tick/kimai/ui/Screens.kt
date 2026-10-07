@@ -730,7 +730,7 @@ private fun EntryRow(
     val end = entry.endMillis?.let { Fmt.clock(context, it, mode) }.orEmpty()
     val detail =
         listOfNotNull(
-            entry.activity.name,
+            entry.activityLabel,
             entry.description?.takeIf { it.isNotBlank() },
         ).joinToString(" · ")
 

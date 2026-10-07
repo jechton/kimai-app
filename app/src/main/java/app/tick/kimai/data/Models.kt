@@ -32,8 +32,11 @@ data class Entry(
     val endMillis: Long? get() = end?.let { Fmt.parseMillis(it) }
     val seconds: Long
         get() = duration?.takeIf { it > 0 } ?: (((endMillis ?: beginMillis) - beginMillis) / 1000)
+    /** Activity name, or null when missing or identical to the project name. */
+    val activityLabel: String?
+        get() = activity.name?.takeIf { it != project.name }
     val label: String
-        get() = listOfNotNull(project.name, activity.name).joinToString(" · ")
+        get() = listOfNotNull(project.name, activityLabel).joinToString(" · ")
 }
 
 @Serializable
