@@ -18,12 +18,25 @@ nix develop                 # JDK 17 + Android SDK 35 + adb, aapt2 override set
 ./gradlew installDebug      # with the phone connected over adb
 ```
 
-With direnv: `direnv allow` instead of `nix develop`.
+With direnv: `direnv allow` instead of `nix develop`. direnv also puts `scripts/` on
+`PATH`, so `tick build`, `tick install`, `tick avd` (create the emulator once) and
+`tick emulator`/`tick run` work directly.
 
 First build downloads Gradle 8.10.2 and the Maven dependencies, so it needs network.
 
 Android Studio is optional. If you want it, add `pkgs.android-studio` to `packages` in `flake.nix`
 and set the SDK path to `$ANDROID_HOME` in the project settings.
+
+## Formatting and CI
+
+Code style is enforced with [ktlint](https://pinterest.github.io/ktlint/):
+
+```sh
+./gradlew ktlintFormat   # auto-fix
+./gradlew ktlintCheck    # check only, what CI runs
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs `ktlintCheck` and `assembleDebug` on every push and PR.
 
 ### NixOS notes
 
