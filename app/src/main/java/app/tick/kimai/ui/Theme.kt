@@ -14,11 +14,12 @@ import androidx.compose.ui.platform.LocalContext
 fun TickTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val context = LocalContext.current
-    val scheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
-    }
+    val scheme =
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            dark -> darkColorScheme()
+            else -> lightColorScheme()
+        }
     MaterialTheme(colorScheme = scheme, content = content)
 }

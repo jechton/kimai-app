@@ -38,27 +38,29 @@ class Prefs(context: Context) {
 
     val loggedIn: Boolean get() = serverUrl.isNotBlank() && token.isNotBlank()
 
-    fun timerState() = TimerState(
-        running = sp.getBoolean("t_running", false),
-        id = sp.getInt("t_id", 0),
-        project = sp.getString("t_project", "").orEmpty(),
-        activity = sp.getString("t_activity", "").orEmpty(),
-        description = sp.getString("t_desc", "").orEmpty(),
-        beginMillis = sp.getLong("t_begin", 0L),
-        lastId = sp.getInt("t_last_id", 0),
-        lastLabel = sp.getString("t_last_label", "").orEmpty(),
-    )
+    fun timerState() =
+        TimerState(
+            running = sp.getBoolean("t_running", false),
+            id = sp.getInt("t_id", 0),
+            project = sp.getString("t_project", "").orEmpty(),
+            activity = sp.getString("t_activity", "").orEmpty(),
+            description = sp.getString("t_desc", "").orEmpty(),
+            beginMillis = sp.getLong("t_begin", 0L),
+            lastId = sp.getInt("t_last_id", 0),
+            lastLabel = sp.getString("t_last_label", "").orEmpty(),
+        )
 
-    fun saveTimerState(s: TimerState) = sp.edit {
-        putBoolean("t_running", s.running)
-        putInt("t_id", s.id)
-        putString("t_project", s.project)
-        putString("t_activity", s.activity)
-        putString("t_desc", s.description)
-        putLong("t_begin", s.beginMillis)
-        putInt("t_last_id", s.lastId)
-        putString("t_last_label", s.lastLabel)
-    }
+    fun saveTimerState(s: TimerState) =
+        sp.edit {
+            putBoolean("t_running", s.running)
+            putInt("t_id", s.id)
+            putString("t_project", s.project)
+            putString("t_activity", s.activity)
+            putString("t_desc", s.description)
+            putLong("t_begin", s.beginMillis)
+            putInt("t_last_id", s.lastId)
+            putString("t_last_label", s.lastLabel)
+        }
 
     fun signOut() {
         val mode = timeMode

@@ -35,7 +35,10 @@ import app.tick.kimai.data.TimerState
 import app.tick.kimai.util.Fmt
 
 class TickWidget : GlanceAppWidget() {
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
+    override suspend fun provideGlance(
+        context: Context,
+        id: GlanceId,
+    ) {
         val prefs = Prefs(context)
         val state = prefs.timerState()
         val since = if (state.running) Fmt.clock(context, state.beginMillis, prefs.timeMode) else ""
@@ -48,42 +51,50 @@ class TickWidget : GlanceAppWidget() {
 }
 
 @Composable
-private fun WidgetContent(s: TimerState, since: String) {
-    val title = when {
-        s.running -> s.project.ifBlank { "Timer running" }
-        else -> "No timer running"
-    }
-    val subtitle = when {
-        s.running -> listOf(s.activity, "since $since").filter { it.isNotBlank() }.joinToString(" · ")
-        s.lastLabel.isNotBlank() -> "Last: ${s.lastLabel}"
-        else -> "Tap to open Tick"
-    }
+private fun WidgetContent(
+    s: TimerState,
+    since: String,
+) {
+    val title =
+        when {
+            s.running -> s.project.ifBlank { "Timer running" }
+            else -> "No timer running"
+        }
+    val subtitle =
+        when {
+            s.running -> listOf(s.activity, "since $since").filter { it.isNotBlank() }.joinToString(" · ")
+            s.lastLabel.isNotBlank() -> "Last: ${s.lastLabel}"
+            else -> "Tap to open Tick"
+        }
 
     Column(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
-            .cornerRadius(24.dp)
-            .padding(16.dp)
-            .clickable(actionStartActivity<MainActivity>()),
+        modifier =
+            GlanceModifier
+                .fillMaxSize()
+                .background(GlanceTheme.colors.widgetBackground)
+                .cornerRadius(24.dp)
+                .padding(16.dp)
+                .clickable(actionStartActivity<MainActivity>()),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         Text(
             text = title,
             maxLines = 1,
-            style = TextStyle(
-                color = GlanceTheme.colors.onSurface,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-            ),
+            style =
+                TextStyle(
+                    color = GlanceTheme.colors.onSurface,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
         )
         Text(
             text = subtitle,
             maxLines = 1,
-            style = TextStyle(
-                color = GlanceTheme.colors.onSurfaceVariant,
-                fontSize = 13.sp,
-            ),
+            style =
+                TextStyle(
+                    color = GlanceTheme.colors.onSurfaceVariant,
+                    fontSize = 13.sp,
+                ),
         )
         Spacer(modifier = GlanceModifier.height(10.dp))
         Button(

@@ -20,7 +20,10 @@ object TimerNotifier {
      * and removes it when none does. The system draws the ticking clock itself,
      * so no service has to stay alive.
      */
-    fun update(context: Context, s: TimerState) {
+    fun update(
+        context: Context,
+        s: TimerState,
+    ) {
         val nm = context.getSystemService(NotificationManager::class.java)
         if (!s.running) {
             nm.cancel(ID)
@@ -30,33 +33,40 @@ object TimerNotifier {
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW).apply {
                 setShowBadge(false)
-            }
+            },
         )
 
         val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        val open = PendingIntent.getActivity(
-            context, 0, Intent(context, MainActivity::class.java), flags
-        )
-        val stop = PendingIntent.getBroadcast(
-            context, 1,
-            Intent(context, TimerActionReceiver::class.java).setAction(ACTION_STOP),
-            flags
-        )
+        val open =
+            PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                flags,
+            )
+        val stop =
+            PendingIntent.getBroadcast(
+                context,
+                1,
+                Intent(context, TimerActionReceiver::class.java).setAction(ACTION_STOP),
+                flags,
+            )
 
         val detail = listOf(s.activity, s.description).filter { it.isNotBlank() }.joinToString(" · ")
 
-        val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_timer)
-            .setContentTitle(s.project.ifBlank { "Timer running" })
-            .setContentText(detail)
-            .setUsesChronometer(true)
-            .setShowWhen(true)
-            .setWhen(s.beginMillis)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(open)
-            .addAction(0, "Stop", stop)
-            .build()
+        val n =
+            NotificationCompat.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ic_stat_timer)
+                .setContentTitle(s.project.ifBlank { "Timer running" })
+                .setContentText(detail)
+                .setUsesChronometer(true)
+                .setShowWhen(true)
+                .setWhen(s.beginMillis)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(open)
+                .addAction(0, "Stop", stop)
+                .build()
 
         nm.notify(ID, n)
     }
