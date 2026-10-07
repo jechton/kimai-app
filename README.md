@@ -40,6 +40,22 @@ Code style is enforced with [ktlint](https://pinterest.github.io/ktlint/):
 
 GitHub Actions (`.github/workflows/ci.yml`) runs `ktlintCheck` and `assembleDebug` on every push and PR.
 
+## Releasing
+
+Pushing a tag like `v0.2.0` runs `.github/workflows/release.yml`, which builds a signed release
+APK (`versionName` taken from the tag) and attaches it to a new GitHub Release.
+
+Needs these repo secrets, set once:
+
+- `RELEASE_KEYSTORE_BASE64` — a release keystore, base64-encoded (`base64 -w0 release.keystore`).
+  Generate one with
+  `keytool -genkeypair -v -keystore release.keystore -alias tick -keyalg RSA -keysize 2048 -validity 10000`
+  and keep it somewhere safe — losing it means you can never publish an update under the same signature.
+- `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` — match what you used above.
+
+Without those secrets, `assembleRelease` still builds (useful for CI on PRs that touch release
+config) but the APK comes out unsigned.
+
 ### NixOS notes
 
 AGP downloads its own `aapt2`, which is a dynamically linked binary and fails on NixOS.

@@ -17,12 +17,30 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        // CI sets RELEASE_VERSION from the pushed tag; local builds fall back to this.
+        versionName = System.getenv("RELEASE_VERSION") ?: "0.1.0"
+    }
+
+    // Set by CI from repo secrets (see .github/workflows/release.yml). Release builds without
+    // them are unsigned, which is fine for local assembleRelease but can't be installed as-is.
+    val releaseKeystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
+    if (releaseKeystorePath != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystorePath)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseKeystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
