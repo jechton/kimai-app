@@ -24,8 +24,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -63,6 +65,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,9 +84,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
 import app.tick.kimai.data.Entry
+import app.tick.kimai.data.KimaiQr
 import app.tick.kimai.util.Fmt
+import app.tick.kimai.util.QrImage
 import app.tick.kimai.util.TimeMode
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -107,7 +115,25 @@ private fun LoginScreen(
     var url by rememberSaveable { mutableStateOf("") }
     var token by rememberSaveable { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
+    val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun useQr(raw: String?) {
+        val qr = raw?.let { KimaiQr.parse(it) }
+        if (qr == null) {
+            scope.launch { snackbar.showSnackbar("That's not a Kimai login QR code") }
+        } else {
+            vm.login(qr.url, qr.token, "")
+        }
+    }
+
+    val scanQr =
+        rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let(::useQr) }
+    val pickQrImage =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let { useQr(QrImage.decode(context, it)) }
+        }
 
     LaunchedEffect(ui.error) {
         ui.error?.let {
@@ -130,6 +156,36 @@ private fun LoginScreen(
             Text(
                 "Sign in to your Kimai server with an API token from your Kimai profile.",
                 style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = {
+                        scanQr.launch(
+                            ScanOptions()
+                                .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                .setPrompt("Scan Kimai login QR code")
+                                .setBeepEnabled(false),
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Scan QR")
+                }
+                OutlinedButton(
+                    onClick = { pickQrImage.launch("image/*") },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Upload QR")
+                }
+            }
+            Text(
+                "or enter your details manually",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(

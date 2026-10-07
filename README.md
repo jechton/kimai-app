@@ -52,7 +52,8 @@ If `flake.nix` bumps `buildToolsVersion`, change it in `app/build.gradle.kts` to
 
 ## Sign in
 
-Create an API token in your Kimai user profile and enter the server URL plus the token.
+Create an API token in your Kimai user profile and enter the server URL plus the token, or scan
+(or upload a screenshot of) Kimai's login QR code to fill both in automatically.
 Servers that only support the legacy API password: fill in the optional username field too.
 Plain `http://` servers are blocked by Android's default cleartext policy. Use https.
 
