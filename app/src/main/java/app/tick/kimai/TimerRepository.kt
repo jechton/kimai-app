@@ -50,7 +50,7 @@ class TimerRepository(context: Context) {
                     running = running != null,
                     id = running?.id ?: 0,
                     project = running?.project?.name.orEmpty(),
-                    activity = running?.activity?.name.orEmpty(),
+                    activity = running?.activityLabel.orEmpty(),
                     description = running?.description.orEmpty(),
                     beginMillis = running?.beginMillis ?: 0L,
                     lastId = last?.id ?: old.lastId,
