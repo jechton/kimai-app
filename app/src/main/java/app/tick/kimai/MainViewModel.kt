@@ -35,9 +35,10 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
     private val repo = TimerRepository(app)
 
-    private val _ui = MutableStateFlow(
-        UiState(loggedIn = prefs.loggedIn, timer = prefs.timerState(), timeMode = prefs.timeMode)
-    )
+    private val _ui =
+        MutableStateFlow(
+            UiState(loggedIn = prefs.loggedIn, timer = prefs.timerState(), timeMode = prefs.timeMode),
+        )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
     private fun launchBusy(block: suspend () -> Unit) {
@@ -55,10 +56,11 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun describe(e: Exception): String = when (e) {
-        is UnknownHostException -> "Can't reach the server"
-        else -> e.message ?: "Something went wrong"
-    }
+    private fun describe(e: Exception): String =
+        when (e) {
+            is UnknownHostException -> "Can't reach the server"
+            else -> e.message ?: "Something went wrong"
+        }
 
     private fun apply(r: SyncResult) {
         _ui.update { it.copy(timer = r.state, entries = r.entries) }
@@ -68,7 +70,11 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     // Sign in / out
 
-    fun login(rawUrl: String, token: String, username: String) = launchBusy {
+    fun login(
+        rawUrl: String,
+        token: String,
+        username: String,
+    ) = launchBusy {
         val url = normalizeUrl(rawUrl)
         val cleanToken = token.trim()
         val legacyUser = username.trim()
@@ -98,11 +104,12 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     // Loading
 
-    fun refresh() = launchBusy {
-        if (!prefs.loggedIn) return@launchBusy
-        apply(repo.sync().getOrThrow())
-        if (_ui.value.projects.isEmpty()) loadProjects()
-    }
+    fun refresh() =
+        launchBusy {
+            if (!prefs.loggedIn) return@launchBusy
+            apply(repo.sync().getOrThrow())
+            if (_ui.value.projects.isEmpty()) loadProjects()
+        }
 
     private suspend fun loadProjects() {
         val api = repo.apiOrNull() ?: return
@@ -132,29 +139,38 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     // Timer actions
 
-    fun start() = launchBusy {
-        val s = _ui.value
-        val project = s.selectedProject ?: error("Choose a project")
-        val activity = s.selectedActivity ?: error("Choose an activity")
-        prefs.lastProjectId = project.id
-        prefs.lastActivityId = activity.id
-        apply(repo.start(project.id, activity.id, s.description.trim()).getOrThrow())
-        _ui.update { it.copy(description = "") }
-    }
+    fun start() =
+        launchBusy {
+            val s = _ui.value
+            val project = s.selectedProject ?: error("Choose a project")
+            val activity = s.selectedActivity ?: error("Choose an activity")
+            prefs.lastProjectId = project.id
+            prefs.lastActivityId = activity.id
+            apply(repo.start(project.id, activity.id, s.description.trim()).getOrThrow())
+            _ui.update { it.copy(description = "") }
+        }
 
-    fun stop() = launchBusy {
-        apply(repo.stop().getOrThrow())
-    }
+    fun stop() =
+        launchBusy {
+            apply(repo.stop().getOrThrow())
+        }
 
-    fun restart(entry: Entry) = launchBusy {
-        apply(repo.restart(entry.id).getOrThrow())
-    }
+    fun restart(entry: Entry) =
+        launchBusy {
+            apply(repo.restart(entry.id).getOrThrow())
+        }
 
-    fun delete(entry: Entry) = launchBusy {
-        apply(repo.delete(entry.id).getOrThrow())
-    }
+    fun delete(entry: Entry) =
+        launchBusy {
+            apply(repo.delete(entry.id).getOrThrow())
+        }
 
-    fun updateEntry(entry: Entry, description: String, beginMillis: Long, endMillis: Long) = launchBusy {
+    fun updateEntry(
+        entry: Entry,
+        description: String,
+        beginMillis: Long,
+        endMillis: Long,
+    ) = launchBusy {
         apply(repo.updateEntry(entry.id, description.trim(), beginMillis, endMillis).getOrThrow())
     }
 

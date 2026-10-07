@@ -25,17 +25,23 @@ class KimaiApi(
 
     private val base = baseUrl.trimEnd('/') + "/api/"
 
-    private suspend fun request(method: String, path: String, body: JsonObject? = null): String =
+    private suspend fun request(
+        method: String,
+        path: String,
+        body: JsonObject? = null,
+    ): String =
         withContext(Dispatchers.IO) {
-            val payload = when {
-                body != null -> body.toString().toRequestBody(JSON)
-                method == "GET" || method == "DELETE" -> null
-                else -> "{}".toRequestBody(JSON)
-            }
-            val builder = Request.Builder()
-                .url(base + path)
-                .header("Accept", "application/json")
-                .method(method, payload)
+            val payload =
+                when {
+                    body != null -> body.toString().toRequestBody(JSON)
+                    method == "GET" || method == "DELETE" -> null
+                    else -> "{}".toRequestBody(JSON)
+                }
+            val builder =
+                Request.Builder()
+                    .url(base + path)
+                    .header("Accept", "application/json")
+                    .method(method, payload)
             if (legacyUser.isNotBlank()) {
                 builder.header("X-AUTH-USER", legacyUser).header("X-AUTH-TOKEN", token)
             } else {
@@ -48,8 +54,7 @@ class KimaiApi(
             }
         }
 
-    suspend fun me(): Me =
-        json.decodeFromString(Me.serializer(), request("GET", "users/me"))
+    suspend fun me(): Me = json.decodeFromString(Me.serializer(), request("GET", "users/me"))
 
     /** Newest first. Running entries have end == null. */
     suspend fun recent(size: Int): List<Entry> {
@@ -67,13 +72,19 @@ class KimaiApi(
         return json.decodeFromString(ListSerializer(Activity.serializer()), text)
     }
 
-    suspend fun start(projectId: Int, activityId: Int, description: String, begin: String) {
-        val body = buildJsonObject {
-            put("project", projectId)
-            put("activity", activityId)
-            put("begin", begin)
-            if (description.isNotBlank()) put("description", description)
-        }
+    suspend fun start(
+        projectId: Int,
+        activityId: Int,
+        description: String,
+        begin: String,
+    ) {
+        val body =
+            buildJsonObject {
+                put("project", projectId)
+                put("activity", activityId)
+                put("begin", begin)
+                if (description.isNotBlank()) put("description", description)
+            }
         request("POST", "timesheets", body)
     }
 
@@ -90,28 +101,39 @@ class KimaiApi(
     }
 
     /** begin and end are local times in the user's Kimai timezone, e.g. 2026-10-07T09:05:00. */
-    suspend fun updateEntry(id: Int, description: String, begin: String, end: String) {
-        val body = buildJsonObject {
-            put("description", description)
-            put("begin", begin)
-            put("end", end)
-        }
+    suspend fun updateEntry(
+        id: Int,
+        description: String,
+        begin: String,
+        end: String,
+    ) {
+        val body =
+            buildJsonObject {
+                put("description", description)
+                put("begin", begin)
+                put("end", end)
+            }
         request("PATCH", "timesheets/$id", body)
     }
 
-    private fun errorMessage(code: Int, text: String): String {
+    private fun errorMessage(
+        code: Int,
+        text: String,
+    ): String {
         if (code == 401 || code == 403) return "Server rejected the token (HTTP $code)"
-        val msg = runCatching {
-            json.parseToJsonElement(text).jsonObject["message"]?.jsonPrimitive?.content
-        }.getOrNull()
+        val msg =
+            runCatching {
+                json.parseToJsonElement(text).jsonObject["message"]?.jsonPrimitive?.content
+            }.getOrNull()
         return msg?.takeIf { it.isNotBlank() } ?: "Server error (HTTP $code)"
     }
 
     private companion object {
         val JSON = "application/json; charset=utf-8".toMediaType()
         val json = Json { ignoreUnknownKeys = true }
-        val client: OkHttpClient = OkHttpClient.Builder()
-            .callTimeout(20, TimeUnit.SECONDS)
-            .build()
+        val client: OkHttpClient =
+            OkHttpClient.Builder()
+                .callTimeout(20, TimeUnit.SECONDS)
+                .build()
     }
 }

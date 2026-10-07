@@ -100,7 +100,10 @@ fun TickRoot(vm: MainViewModel) {
 // Sign in
 
 @Composable
-private fun LoginScreen(vm: MainViewModel, ui: UiState) {
+private fun LoginScreen(
+    vm: MainViewModel,
+    ui: UiState,
+) {
     var url by rememberSaveable { mutableStateOf("") }
     var token by rememberSaveable { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
@@ -115,11 +118,12 @@ private fun LoginScreen(vm: MainViewModel, ui: UiState) {
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
             Text("Tick", style = MaterialTheme.typography.displayMedium)
@@ -169,7 +173,10 @@ private fun LoginScreen(vm: MainViewModel, ui: UiState) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreen(vm: MainViewModel, ui: UiState) {
+private fun HomeScreen(
+    vm: MainViewModel,
+    ui: UiState,
+) {
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     var menuOpen by remember { mutableStateOf(false) }
@@ -177,9 +184,10 @@ private fun HomeScreen(vm: MainViewModel, ui: UiState) {
     var editing by remember { mutableStateOf<Entry?>(null) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
 
-    val notifPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
+    val notifPermission =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { }
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
@@ -216,11 +224,17 @@ private fun HomeScreen(vm: MainViewModel, ui: UiState) {
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
                                 text = { Text("Time format") },
-                                onClick = { menuOpen = false; showTimeDialog = true },
+                                onClick = {
+                                    menuOpen = false
+                                    showTimeDialog = true
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Sign out") },
-                                onClick = { menuOpen = false; vm.logout() },
+                                onClick = {
+                                    menuOpen = false
+                                    vm.logout()
+                                },
                             )
                         }
                     }
@@ -304,17 +318,18 @@ private fun HomeScreen(vm: MainViewModel, ui: UiState) {
                         TimeMode.H24 to "24-hour",
                     ).forEach { (mode, label) ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = ui.timeMode == mode,
-                                    onClick = {
-                                        vm.setTimeMode(mode)
-                                        showTimeDialog = false
-                                    },
-                                    role = Role.RadioButton,
-                                )
-                                .padding(vertical = 12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = ui.timeMode == mode,
+                                        onClick = {
+                                            vm.setTimeMode(mode)
+                                            showTimeDialog = false
+                                        },
+                                        role = Role.RadioButton,
+                                    )
+                                    .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(selected = ui.timeMode == mode, onClick = null)
@@ -332,7 +347,10 @@ private fun HomeScreen(vm: MainViewModel, ui: UiState) {
 // Timer card
 
 @Composable
-private fun TimerCard(vm: MainViewModel, ui: UiState) {
+private fun TimerCard(
+    vm: MainViewModel,
+    ui: UiState,
+) {
     val t = ui.timer
     val context = LocalContext.current
 
@@ -346,10 +364,11 @@ private fun TimerCard(vm: MainViewModel, ui: UiState) {
         }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
@@ -470,7 +489,7 @@ private fun EditEntryDialog(
     }
     var end by remember(entry.id) {
         mutableStateOf(
-            Instant.ofEpochMilli(entry.endMillis ?: entry.beginMillis).atZone(zone).toLocalDateTime()
+            Instant.ofEpochMilli(entry.endMillis ?: entry.beginMillis).atZone(zone).toLocalDateTime(),
         )
     }
     // Which picker is open: first = editing the start (true) or end (false), second = date (true) or time (false)
@@ -526,16 +545,19 @@ private fun EditEntryDialog(
 
     picking?.let { (isStart, isDate) ->
         val current = if (isStart) begin else end
+
         fun assign(v: LocalDateTime) {
             if (isStart) begin = v else end = v
         }
 
         if (isDate) {
-            val state = rememberDatePickerState(
-                // The date picker works in UTC midnight millis
-                initialSelectedDateMillis = current.toLocalDate()
-                    .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-            )
+            val state =
+                rememberDatePickerState(
+                    // The date picker works in UTC midnight millis
+                    initialSelectedDateMillis =
+                        current.toLocalDate()
+                            .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+                )
             DatePickerDialog(
                 onDismissRequest = { picking = null },
                 confirmButton = {
@@ -552,11 +574,12 @@ private fun EditEntryDialog(
                 DatePicker(state = state)
             }
         } else {
-            val state = rememberTimePickerState(
-                initialHour = current.hour,
-                initialMinute = current.minute,
-                is24Hour = Fmt.is24(context, mode),
-            )
+            val state =
+                rememberTimePickerState(
+                    initialHour = current.hour,
+                    initialMinute = current.minute,
+                    is24Hour = Fmt.is24(context, mode),
+                )
             AlertDialog(
                 onDismissRequest = { picking = null },
                 properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -584,8 +607,9 @@ private fun DateTimeRow(
     onTime: () -> Unit,
 ) {
     val context = LocalContext.current
-    val dateText = value.toLocalDate()
-        .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+    val dateText =
+        value.toLocalDate()
+            .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
     val timeText = Fmt.clock(context, value.atZone(zone).toInstant().toEpochMilli(), mode)
 
     Row(
@@ -621,10 +645,11 @@ private fun EntryRow(
 
     val begin = Fmt.clock(context, entry.beginMillis, mode)
     val end = entry.endMillis?.let { Fmt.clock(context, it, mode) }.orEmpty()
-    val detail = listOfNotNull(
-        entry.activity.name,
-        entry.description?.takeIf { it.isNotBlank() },
-    ).joinToString(" · ")
+    val detail =
+        listOfNotNull(
+            entry.activity.name,
+            entry.description?.takeIf { it.isNotBlank() },
+        ).joinToString(" · ")
 
     Card(modifier = Modifier.fillMaxWidth()) {
         ListItem(
@@ -653,17 +678,26 @@ private fun EntryRow(
                             DropdownMenuItem(
                                 text = { Text("Start again") },
                                 leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                                onClick = { menuOpen = false; onRestart() },
+                                onClick = {
+                                    menuOpen = false
+                                    onRestart()
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Edit") },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = { menuOpen = false; onEdit() },
+                                onClick = {
+                                    menuOpen = false
+                                    onEdit()
+                                },
                             )
                             DropdownMenuItem(
                                 text = { Text("Delete") },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                                onClick = { menuOpen = false; onDelete() },
+                                onClick = {
+                                    menuOpen = false
+                                    onDelete()
+                                },
                             )
                         }
                     }

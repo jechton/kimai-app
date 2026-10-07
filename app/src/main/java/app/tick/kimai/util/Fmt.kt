@@ -25,28 +25,39 @@ object Fmt {
     private val BEGIN = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
     fun parseMillis(s: String): Long {
-        val odt = try {
-            OffsetDateTime.parse(s, API)
-        } catch (e: DateTimeParseException) {
-            OffsetDateTime.parse(s)
-        }
+        val odt =
+            try {
+                OffsetDateTime.parse(s, API)
+            } catch (e: DateTimeParseException) {
+                OffsetDateTime.parse(s)
+            }
         return odt.toInstant().toEpochMilli()
     }
 
     fun beginNow(zone: ZoneId): String = ZonedDateTime.now(zone).format(BEGIN)
 
     /** In-app override if set, else the system 12/24h setting. */
-    fun is24(context: Context, mode: Int): Boolean = when (mode) {
-        TimeMode.H12 -> false
-        TimeMode.H24 -> true
-        else -> DateFormat.is24HourFormat(context)
-    }
+    fun is24(
+        context: Context,
+        mode: Int,
+    ): Boolean =
+        when (mode) {
+            TimeMode.H12 -> false
+            TimeMode.H24 -> true
+            else -> DateFormat.is24HourFormat(context)
+        }
 
     /** Format an instant as Kimai expects for writes: local time in the given zone, no offset. */
-    fun apiLocal(millis: Long, zone: ZoneId): String =
-        Instant.ofEpochMilli(millis).atZone(zone).format(BEGIN)
+    fun apiLocal(
+        millis: Long,
+        zone: ZoneId,
+    ): String = Instant.ofEpochMilli(millis).atZone(zone).format(BEGIN)
 
-    fun clock(context: Context, millis: Long, mode: Int): String {
+    fun clock(
+        context: Context,
+        millis: Long,
+        mode: Int,
+    ): String {
         val f = DateTimeFormatter.ofPattern(if (is24(context, mode)) "HH:mm" else "h:mm a", Locale.getDefault())
         return f.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
     }
@@ -56,8 +67,7 @@ object Fmt {
         return "%d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
     }
 
-    fun localDate(millis: Long): LocalDate =
-        Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+    fun localDate(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
 
     fun dayLabel(d: LocalDate): String {
         val today = LocalDate.now()

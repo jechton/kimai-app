@@ -12,11 +12,12 @@ import java.util.concurrent.TimeUnit
 class TickApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(
-                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-            )
-            .build()
+        val request =
+            PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+                .setConstraints(
+                    Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build(),
+                )
+                .build()
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork("sync", ExistingPeriodicWorkPolicy.KEEP, request)
     }

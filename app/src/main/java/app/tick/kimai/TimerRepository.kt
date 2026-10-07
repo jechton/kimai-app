@@ -26,8 +26,7 @@ class TimerRepository(context: Context) {
     private val app = context.applicationContext
     private val prefs = Prefs(app)
 
-    fun apiOrNull(): KimaiApi? =
-        if (prefs.loggedIn) KimaiApi(prefs.serverUrl, prefs.token, prefs.username) else null
+    fun apiOrNull(): KimaiApi? = if (prefs.loggedIn) KimaiApi(prefs.serverUrl, prefs.token, prefs.username) else null
 
     private fun api(): KimaiApi = apiOrNull() ?: throw NotSignedIn()
 
@@ -37,78 +36,95 @@ class TimerRepository(context: Context) {
             ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
             ?: ZoneId.systemDefault()
 
-    suspend fun sync(size: Int = 40, updateTile: Boolean = true): Result<SyncResult> = runCatching {
-        val entries = api().recent(size)
-        val running = entries.firstOrNull { it.isRunning }
-        val last = entries.firstOrNull { !it.isRunning }
-        val old = prefs.timerState()
-        val state = TimerState(
-            running = running != null,
-            id = running?.id ?: 0,
-            project = running?.project?.name.orEmpty(),
-            activity = running?.activity?.name.orEmpty(),
-            description = running?.description.orEmpty(),
-            beginMillis = running?.beginMillis ?: 0L,
-            lastId = last?.id ?: old.lastId,
-            lastLabel = last?.label ?: old.lastLabel,
-        )
-        prefs.saveTimerState(state)
-        refreshSurfaces(state, updateTile)
-        SyncResult(state, entries)
-    }
+    suspend fun sync(
+        size: Int = 40,
+        updateTile: Boolean = true,
+    ): Result<SyncResult> =
+        runCatching {
+            val entries = api().recent(size)
+            val running = entries.firstOrNull { it.isRunning }
+            val last = entries.firstOrNull { !it.isRunning }
+            val old = prefs.timerState()
+            val state =
+                TimerState(
+                    running = running != null,
+                    id = running?.id ?: 0,
+                    project = running?.project?.name.orEmpty(),
+                    activity = running?.activity?.name.orEmpty(),
+                    description = running?.description.orEmpty(),
+                    beginMillis = running?.beginMillis ?: 0L,
+                    lastId = last?.id ?: old.lastId,
+                    lastLabel = last?.label ?: old.lastLabel,
+                )
+            prefs.saveTimerState(state)
+            refreshSurfaces(state, updateTile)
+            SyncResult(state, entries)
+        }
 
-    suspend fun start(projectId: Int, activityId: Int, description: String): Result<SyncResult> =
+    suspend fun start(
+        projectId: Int,
+        activityId: Int,
+        description: String,
+    ): Result<SyncResult> =
         runCatching {
             api().start(projectId, activityId, description, Fmt.beginNow(userZone()))
             sync().getOrThrow()
         }
 
-    suspend fun stop(): Result<SyncResult> = runCatching {
-        val current = sync().getOrThrow()
-        if (current.state.running) api().stop(current.state.id)
-        sync().getOrThrow()
-    }
+    suspend fun stop(): Result<SyncResult> =
+        runCatching {
+            val current = sync().getOrThrow()
+            if (current.state.running) api().stop(current.state.id)
+            sync().getOrThrow()
+        }
 
-    suspend fun restart(entryId: Int): Result<SyncResult> = runCatching {
-        if (entryId == 0) error("Nothing to restart yet")
-        api().restart(entryId)
-        sync().getOrThrow()
-    }
+    suspend fun restart(entryId: Int): Result<SyncResult> =
+        runCatching {
+            if (entryId == 0) error("Nothing to restart yet")
+            api().restart(entryId)
+            sync().getOrThrow()
+        }
 
     /** Used by the widget and tile: stop if running, otherwise restart the last entry. */
-    suspend fun toggle(updateTile: Boolean = true): Result<SyncResult> = runCatching {
-        val current = sync(size = 10, updateTile = updateTile).getOrThrow()
-        if (current.state.running) {
-            api().stop(current.state.id)
-        } else {
-            if (current.state.lastId == 0) error("Nothing to restart yet")
-            api().restart(current.state.lastId)
+    suspend fun toggle(updateTile: Boolean = true): Result<SyncResult> =
+        runCatching {
+            val current = sync(size = 10, updateTile = updateTile).getOrThrow()
+            if (current.state.running) {
+                api().stop(current.state.id)
+            } else {
+                if (current.state.lastId == 0) error("Nothing to restart yet")
+                api().restart(current.state.lastId)
+            }
+            sync(size = 10, updateTile = updateTile).getOrThrow()
         }
-        sync(size = 10, updateTile = updateTile).getOrThrow()
-    }
 
-    suspend fun delete(entryId: Int): Result<SyncResult> = runCatching {
-        api().delete(entryId)
-        sync().getOrThrow()
-    }
+    suspend fun delete(entryId: Int): Result<SyncResult> =
+        runCatching {
+            api().delete(entryId)
+            sync().getOrThrow()
+        }
 
     suspend fun updateEntry(
         entryId: Int,
         description: String,
         beginMillis: Long,
         endMillis: Long,
-    ): Result<SyncResult> = runCatching {
-        val zone = userZone()
-        api().updateEntry(
-            entryId,
-            description,
-            Fmt.apiLocal(beginMillis, zone),
-            Fmt.apiLocal(endMillis, zone),
-        )
-        sync().getOrThrow()
-    }
+    ): Result<SyncResult> =
+        runCatching {
+            val zone = userZone()
+            api().updateEntry(
+                entryId,
+                description,
+                Fmt.apiLocal(beginMillis, zone),
+                Fmt.apiLocal(endMillis, zone),
+            )
+            sync().getOrThrow()
+        }
 
-    suspend fun refreshSurfaces(state: TimerState, updateTile: Boolean = true) {
+    suspend fun refreshSurfaces(
+        state: TimerState,
+        updateTile: Boolean = true,
+    ) {
         TimerNotifier.update(app, state)
         runCatching { TickWidget().updateAll(app) }
         if (updateTile) {
