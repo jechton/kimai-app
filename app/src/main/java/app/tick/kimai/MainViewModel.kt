@@ -169,7 +169,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         entry: Entry,
         description: String,
         beginMillis: Long,
-        endMillis: Long,
+        endMillis: Long?,
     ) = launchBusy {
         apply(repo.updateEntry(entry.id, description.trim(), beginMillis, endMillis).getOrThrow())
     }

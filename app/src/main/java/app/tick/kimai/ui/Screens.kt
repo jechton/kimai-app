@@ -254,7 +254,7 @@ private fun HomeScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item(key = "timer") { TimerCard(vm, ui) }
+                item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
 
                 byDay.forEach { (day, list) ->
                     item(key = "day-$day") {
@@ -350,6 +350,7 @@ private fun HomeScreen(
 private fun TimerCard(
     vm: MainViewModel,
     ui: UiState,
+    onEdit: (Entry) -> Unit,
 ) {
     val t = ui.timer
     val context = LocalContext.current
@@ -374,7 +375,14 @@ private fun TimerCard(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(t.project, style = MaterialTheme.typography.titleLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(t.project, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    ui.entries.firstOrNull { it.isRunning }?.let { entry ->
+                        IconButton(onClick = { onEdit(entry) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit running entry")
+                        }
+                    }
+                }
                 val detail = listOf(t.activity, t.description).filter { it.isNotBlank() }.joinToString(" · ")
                 if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodyMedium)
                 Text(
@@ -478,10 +486,11 @@ private fun EditEntryDialog(
     entry: Entry,
     mode: Int,
     onDismiss: () -> Unit,
-    onSave: (description: String, beginMillis: Long, endMillis: Long) -> Unit,
+    onSave: (description: String, beginMillis: Long, endMillis: Long?) -> Unit,
 ) {
     val context = LocalContext.current
     val zone = remember { ZoneId.systemDefault() }
+    val running = entry.isRunning
 
     var description by remember(entry.id) { mutableStateOf(entry.description.orEmpty()) }
     var begin by remember(entry.id) {
@@ -494,7 +503,7 @@ private fun EditEntryDialog(
     }
     // Which picker is open: first = editing the start (true) or end (false), second = date (true) or time (false)
     var picking by remember { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
-    val valid = end.isAfter(begin)
+    val valid = running || end.isAfter(begin)
 
     fun millis(dt: LocalDateTime): Long = dt.atZone(zone).toInstant().toEpochMilli()
 
@@ -517,14 +526,16 @@ private fun EditEntryDialog(
                     onDate = { picking = true to true },
                     onTime = { picking = true to false },
                 )
-                DateTimeRow(
-                    label = "End",
-                    value = end,
-                    zone = zone,
-                    mode = mode,
-                    onDate = { picking = false to true },
-                    onTime = { picking = false to false },
-                )
+                if (!running) {
+                    DateTimeRow(
+                        label = "End",
+                        value = end,
+                        zone = zone,
+                        mode = mode,
+                        onDate = { picking = false to true },
+                        onTime = { picking = false to false },
+                    )
+                }
                 if (!valid) {
                     Text(
                         "End must be after start",
@@ -537,7 +548,7 @@ private fun EditEntryDialog(
         confirmButton = {
             TextButton(
                 enabled = valid,
-                onClick = { onSave(description, millis(begin), millis(end)) },
+                onClick = { onSave(description, millis(begin), if (running) null else millis(end)) },
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

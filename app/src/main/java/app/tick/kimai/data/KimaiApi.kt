@@ -100,18 +100,21 @@ class KimaiApi(
         request("DELETE", "timesheets/$id")
     }
 
-    /** begin and end are local times in the user's Kimai timezone, e.g. 2026-10-07T09:05:00. */
+    /**
+     * begin and end are local times in the user's Kimai timezone, e.g. 2026-10-07T09:05:00.
+     * end is omitted for a running entry.
+     */
     suspend fun updateEntry(
         id: Int,
         description: String,
         begin: String,
-        end: String,
+        end: String?,
     ) {
         val body =
             buildJsonObject {
                 put("description", description)
                 put("begin", begin)
-                put("end", end)
+                if (end != null) put("end", end)
             }
         request("PATCH", "timesheets/$id", body)
     }
