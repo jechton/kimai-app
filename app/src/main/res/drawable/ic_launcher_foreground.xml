@@ -7,11 +7,11 @@
     <path
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M54,30 a24,24 0 1,0 0,48 a24,24 0 1,0 0,-48z M54,36 a18,18 0 1,0 0,36 a18,18 0 1,0 0,-36z" />
+        android:pathData="M54,34 a24,24 0 1,0 0,48 a24,24 0 1,0 0,-48z M54,40 a18,18 0 1,0 0,36 a18,18 0 1,0 0,-36z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M52,42 h4 v14 h-4z" />
+        android:pathData="M52,46 h4 v14 h-4z" />
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M48,22 h12 v5 h-12z" />
+        android:pathData="M48,26 h12 v5 h-12z" />
 </vector>
