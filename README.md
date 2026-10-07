@@ -1,4 +1,9 @@
+<p align="center"><img src="docs/logo.svg" alt="Tick logo" width="96" height="96"></p>
+
 # Tick
+
+[![CI](https://github.com/jechton/kimai-app/actions/workflows/ci.yml/badge.svg)](https://github.com/jechton/kimai-app/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jechton/kimai-app)](https://github.com/jechton/kimai-app/releases)
 
 Android client for [Kimai](https://www.kimai.org). Kotlin, Jetpack Compose, Material 3 with dynamic color.
 
