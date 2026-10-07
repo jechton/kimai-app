@@ -2,6 +2,7 @@ package app.tick.kimai.data
 
 import app.tick.kimai.util.Fmt
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -59,6 +60,23 @@ data class Me(
     val alias: String? = null,
     val timezone: String? = null,
 )
+
+/** Payload of Kimai's "Create API access" QR code, e.g. {"type":"kimai","version":1,"url":"...","token":"..."}. */
+@Serializable
+data class KimaiQr(
+    val type: String = "",
+    val url: String = "",
+    val token: String = "",
+) {
+    companion object {
+        private val json = Json { ignoreUnknownKeys = true }
+
+        fun parse(raw: String): KimaiQr? =
+            runCatching { json.decodeFromString(serializer(), raw) }
+                .getOrNull()
+                ?.takeIf { it.type == "kimai" && it.url.isNotBlank() && it.token.isNotBlank() }
+    }
+}
 
 /** Cached view of the running timer, shared by the app, notification, widget and tile. */
 data class TimerState(
