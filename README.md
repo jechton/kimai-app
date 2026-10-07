@@ -42,8 +42,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs `ktlintCheck` and `assembleDebu
 
 ## Releasing
 
-Pushing a tag like `v0.2.0` runs `.github/workflows/release.yml`, which builds a signed release
-APK (`versionName` taken from the tag) and attaches it to a new GitHub Release.
+Pushing a tag like `v0.2.0` runs the `release` job in `.github/workflows/ci.yml` (after the
+`build` job passes), which builds a signed release APK (`versionName` taken from the tag) and
+attaches it to a new GitHub Release.
 
 Needs these repo secrets, set once:
 
