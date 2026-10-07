@@ -50,10 +50,13 @@
           GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdkRoot}/build-tools/${buildToolsVersion}/aapt2";
 
           shellHook = ''
-            echo "Tick dev shell. Build with: ./gradlew assembleDebug"
-            echo "Install with:               ./gradlew installDebug   (phone connected via adb)"
-            echo "Create an emulator:         avdmanager create avd -n tick -k \"system-images;android-${platformVersion};google_apis_playstore;x86_64\" -d pixel_6"
-            echo "Run it:                      emulator -avd tick"
+            echo "Tick dev shell."
+            echo "With direnv (PATH_add scripts), or by calling scripts/tick directly:"
+            echo "  tick build      ./gradlew assembleDebug"
+            echo "  tick install    ./gradlew installDebug      (phone or emulator connected over adb)"
+            echo "  tick avd        create the emulator once"
+            echo "  tick emulator   launch it"
+            echo "  tick run        installDebug, then launch the app on the connected device"
           '';
         };
       });
