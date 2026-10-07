@@ -160,6 +160,11 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             apply(repo.restart(entry.id).getOrThrow())
         }
 
+    fun restartLast() =
+        launchBusy {
+            apply(repo.restart(_ui.value.timer.lastId).getOrThrow())
+        }
+
     fun delete(entry: Entry) =
         launchBusy {
             apply(repo.delete(entry.id).getOrThrow())

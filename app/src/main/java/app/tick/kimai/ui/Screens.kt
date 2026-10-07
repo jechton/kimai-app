@@ -467,6 +467,22 @@ private fun TimerCard(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                if (t.lastLabel.isNotBlank()) {
+                    Button(
+                        onClick = { vm.restartLast() },
+                        enabled = !ui.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Start again: ${t.lastLabel}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text(
+                        "or start something new",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Picker(
                     label = "Project",
                     items = ui.projects,
