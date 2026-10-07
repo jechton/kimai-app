@@ -104,11 +104,12 @@ class TimerRepository(context: Context) {
             sync().getOrThrow()
         }
 
+    /** endMillis null leaves the entry running. */
     suspend fun updateEntry(
         entryId: Int,
         description: String,
         beginMillis: Long,
-        endMillis: Long,
+        endMillis: Long?,
     ): Result<SyncResult> =
         runCatching {
             val zone = userZone()
@@ -116,7 +117,7 @@ class TimerRepository(context: Context) {
                 entryId,
                 description,
                 Fmt.apiLocal(beginMillis, zone),
-                Fmt.apiLocal(endMillis, zone),
+                endMillis?.let { Fmt.apiLocal(it, zone) },
             )
             sync().getOrThrow()
         }
