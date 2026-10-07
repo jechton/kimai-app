@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Shortcuts for building and previewing Tick. Available as `tick <cmd>` via
+# direnv (.envrc does PATH_add scripts) whenever you're in this project dir.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+case "${1:-}" in
+  build)
+    ./gradlew assembleDebug
+    ;;
+  install)
+    ./gradlew installDebug
+    ;;
+  avd)
+    avdmanager create avd -n tick \
+      -k "system-images;android-35;google_apis_playstore;x86_64" -d pixel_6
+    ;;
+  emulator)
+    ANDROID_AVD_HOME="$HOME/.local/share/android/avd" emulator -avd tick
+    ;;
+  run)
+    ./gradlew installDebug
+    adb shell monkey -p app.tick.kimai -c android.intent.category.LAUNCHER 1
+    ;;
+  *)
+    echo "usage: tick {build|install|avd|emulator|run}" >&2
+    exit 1
+    ;;
+esac
