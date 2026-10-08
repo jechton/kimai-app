@@ -54,7 +54,10 @@ sealed class PendingAction {
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
-        private val listSerializer = ListSerializer(serializer())
+
+        // serializer() needs the companion's own generated $cachedSerializer field, which isn't
+        // set yet while this property initializer runs during <clinit> — lazy defers it past that.
+        private val listSerializer by lazy { ListSerializer(serializer()) }
 
         fun decodeList(raw: String): List<PendingAction> =
             runCatching { json.decodeFromString(listSerializer, raw) }.getOrDefault(emptyList())
