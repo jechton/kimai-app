@@ -7,6 +7,7 @@ import androidx.glance.appwidget.updateAll
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiApi
 import app.tick.kimai.data.Me
+import app.tick.kimai.data.PendingAction
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
 import app.tick.kimai.data.WeekTotals
@@ -14,6 +15,10 @@ import app.tick.kimai.notify.TimerNotifier
 import app.tick.kimai.tile.TimerTileService
 import app.tick.kimai.util.Fmt
 import app.tick.kimai.widget.TickWidget
+import app.tick.kimai.work.SyncWorker
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -21,14 +26,16 @@ import java.time.temporal.TemporalAdjusters
 
 class NotSignedIn : IllegalStateException("Not signed in")
 
+/** entries is null when the change was only queued offline, so the caller keeps its current list. */
 data class SyncResult(
     val state: TimerState,
     /** This week's entries, or the most recent ones if the week could not be loaded. */
-    val entries: List<Entry>,
+    val entries: List<Entry>?,
     val week: WeekTotals? = null,
     /** The running entry, which may have started before this week. */
     val running: Entry? = null,
     val weekStart: LocalDate? = null,
+    val pending: Int = 0,
 )
 
 data class WeekView(val start: LocalDate, val entries: List<Entry>, val totals: WeekTotals)
@@ -88,6 +95,7 @@ class TimerRepository(context: Context) {
         withWeek: Boolean = true,
     ): Result<SyncResult> =
         runCatching {
+            flushQueue()
             val recent = api().recent(size)
             val running = recent.firstOrNull { it.isRunning }
             val last = recent.firstOrNull { !it.isRunning }
@@ -106,24 +114,126 @@ class TimerRepository(context: Context) {
             prefs.saveTimerState(state)
             val view = if (withWeek) runCatching { loadWeek(0) }.getOrNull() else null
             refreshSurfaces(state, updateTile)
-            SyncResult(
-                state = state,
-                entries = view?.entries ?: recent,
-                week = view?.totals ?: prefs.weekTotals(),
-                running = running,
-                weekStart = view?.start,
-            )
+            result(state, view?.entries ?: recent, view?.totals ?: prefs.weekTotals(), running, view?.start)
+        }
+
+    /** True for failures to reach the server, as opposed to the server rejecting a request. */
+    private fun isOffline(e: Throwable?): Boolean = e is IOException && e !is KimaiApi.ApiException
+
+    private fun nowLocal(): String = Fmt.apiLocal(System.currentTimeMillis(), userZone())
+
+    private fun label(s: TimerState): String =
+        listOf(s.project, s.activity).filter {
+            it.isNotBlank()
+        }.joinToString(" \u00b7 ")
+
+    private fun result(
+        state: TimerState,
+        entries: List<Entry>?,
+        week: WeekTotals?,
+        running: Entry? = null,
+        weekStart: LocalDate? = null,
+    ) = SyncResult(state, entries, week, running, weekStart, prefs.pendingCount())
+
+    /**
+     * Replays queued changes in order. Stops at the first network failure and keeps the rest;
+     * a change the server rejects (e.g. the entry was deleted elsewhere) is dropped.
+     * Returns how many are still waiting.
+     */
+    suspend fun flushQueue(): Int =
+        queueLock.withLock {
+            val queue = prefs.pending().toMutableList()
+            while (queue.isNotEmpty()) {
+                try {
+                    replay(queue.first())
+                } catch (e: IOException) {
+                    if (e is KimaiApi.ApiException) {
+                        queue.removeAt(0)
+                        prefs.savePending(queue)
+                        continue
+                    }
+                    break
+                }
+                queue.removeAt(0)
+                prefs.savePending(queue)
+            }
+            queue.size
+        }
+
+    private suspend fun replay(action: PendingAction) {
+        val api = api()
+        when (action) {
+            is PendingAction.Start -> api.start(action.projectId, action.activityId, action.description, action.begin)
+            is PendingAction.Create ->
+                api.start(action.projectId, action.activityId, action.description, action.begin, action.end)
+            is PendingAction.Stop ->
+                api.recent(10).firstOrNull { it.isRunning }?.let { api.patchTimes(it.id, null, action.end) }
+            is PendingAction.Restart -> {
+                api.restart(action.entryId)
+                api.recent(10).firstOrNull { it.isRunning }?.let { api.patchTimes(it.id, action.begin, null) }
+            }
+            is PendingAction.Update ->
+                api.updateEntry(action.entryId, action.description, action.begin, action.end)
+            is PendingAction.Delete -> api.delete(action.entryId)
+        }
+    }
+
+    /**
+     * Runs [online] against the server. If the server can't be reached, or earlier changes are still
+     * queued (order matters), the change is queued instead and [optimistic] updates the cached timer
+     * so every surface reflects it right away.
+     */
+    private suspend fun perform(
+        pending: PendingAction,
+        updateTile: Boolean,
+        optimistic: (TimerState) -> TimerState = { it },
+        online: suspend () -> Unit,
+    ): Result<SyncResult> =
+        runCatching {
+            val sent =
+                flushQueue() == 0 &&
+                    try {
+                        online()
+                        true
+                    } catch (e: IOException) {
+                        if (!isOffline(e)) throw e
+                        false
+                    }
+            if (sent) {
+                sync(updateTile = updateTile).getOrThrow()
+            } else {
+                queueLock.withLock { prefs.savePending(prefs.pending() + pending) }
+                val state = optimistic(prefs.timerState())
+                prefs.saveTimerState(state)
+                refreshSurfaces(state, updateTile)
+                SyncWorker.flushWhenOnline(app)
+                result(state, null, prefs.weekTotals())
+            }
         }
 
     suspend fun start(
         projectId: Int,
         activityId: Int,
         description: String,
-    ): Result<SyncResult> =
-        runCatching {
-            api().start(projectId, activityId, description, Fmt.beginNow(userZone()))
-            sync().getOrThrow()
-        }
+        projectName: String = "",
+        activityName: String = "",
+    ): Result<SyncResult> {
+        val begin = Fmt.beginNow(userZone())
+        return perform(
+            PendingAction.Start(projectId, activityId, description, begin),
+            updateTile = true,
+            optimistic = {
+                it.copy(
+                    running = true,
+                    id = 0,
+                    project = projectName,
+                    activity = activityName.takeIf { a -> a != projectName }.orEmpty(),
+                    description = description,
+                    beginMillis = System.currentTimeMillis(),
+                )
+            },
+        ) { api().start(projectId, activityId, description, begin) }
+    }
 
     /** Creates a finished entry directly, e.g. for time logged after the fact. */
     suspend fun createEntry(
@@ -132,51 +242,77 @@ class TimerRepository(context: Context) {
         description: String,
         beginMillis: Long,
         endMillis: Long,
-    ): Result<SyncResult> =
-        runCatching {
-            val zone = userZone()
-            api().start(
-                projectId,
-                activityId,
-                description,
-                Fmt.apiLocal(beginMillis, zone),
-                Fmt.apiLocal(endMillis, zone),
-            )
-            sync().getOrThrow()
+    ): Result<SyncResult> {
+        val zone = userZone()
+        val begin = Fmt.apiLocal(beginMillis, zone)
+        val end = Fmt.apiLocal(endMillis, zone)
+        return perform(PendingAction.Create(projectId, activityId, description, begin, end), updateTile = true) {
+            api().start(projectId, activityId, description, begin, end)
         }
+    }
 
-    suspend fun stop(): Result<SyncResult> =
-        runCatching {
-            val current = sync().getOrThrow()
+    suspend fun stop(updateTile: Boolean = true): Result<SyncResult> =
+        perform(
+            PendingAction.Stop(nowLocal()),
+            updateTile,
+            optimistic = {
+                it.copy(
+                    running = false,
+                    id = 0,
+                    project = "",
+                    activity = "",
+                    description = "",
+                    beginMillis = 0L,
+                    lastId = if (it.id != 0) it.id else it.lastId,
+                    lastLabel = label(it).ifBlank { it.lastLabel },
+                )
+            },
+        ) {
+            val current = sync(withWeek = false, updateTile = updateTile).getOrThrow()
             if (current.state.running) api().stop(current.state.id)
-            sync().getOrThrow()
         }
 
-    suspend fun restart(entryId: Int): Result<SyncResult> =
-        runCatching {
-            if (entryId == 0) error("Nothing to restart yet")
-            api().restart(entryId)
-            sync().getOrThrow()
-        }
+    /** project/activity name the optimistic state when offline; the last entry's label is the fallback. */
+    suspend fun restart(
+        entryId: Int,
+        project: String? = null,
+        activity: String? = null,
+        updateTile: Boolean = true,
+    ): Result<SyncResult> {
+        if (entryId == 0) return Result.failure(IllegalStateException("Nothing to restart yet"))
+        return perform(
+            PendingAction.Restart(entryId, nowLocal()),
+            updateTile,
+            optimistic = {
+                it.copy(
+                    running = true,
+                    id = 0,
+                    project = project ?: it.lastLabel,
+                    activity = activity.orEmpty(),
+                    description = "",
+                    beginMillis = System.currentTimeMillis(),
+                )
+            },
+        ) { api().restart(entryId) }
+    }
 
     /** Used by the widget and tile: stop if running, otherwise restart the last entry. */
     suspend fun toggle(updateTile: Boolean = true): Result<SyncResult> =
         runCatching {
-            val current = sync(size = 10, updateTile = updateTile, withWeek = false).getOrThrow()
-            if (current.state.running) {
-                api().stop(current.state.id)
+            val synced = sync(size = 10, updateTile = updateTile, withWeek = false)
+            val failure = synced.exceptionOrNull()
+            val state =
+                synced.getOrNull()?.state
+                    ?: if (isOffline(failure)) prefs.timerState() else throw failure!!
+            if (state.running) {
+                stop(updateTile).getOrThrow()
             } else {
-                if (current.state.lastId == 0) error("Nothing to restart yet")
-                api().restart(current.state.lastId)
+                restart(state.lastId, updateTile = updateTile).getOrThrow()
             }
-            sync(size = 10, updateTile = updateTile).getOrThrow()
         }
 
     suspend fun delete(entryId: Int): Result<SyncResult> =
-        runCatching {
-            api().delete(entryId)
-            sync().getOrThrow()
-        }
+        perform(PendingAction.Delete(entryId), updateTile = true) { api().delete(entryId) }
 
     /** endMillis null leaves the entry running. */
     suspend fun updateEntry(
@@ -184,17 +320,14 @@ class TimerRepository(context: Context) {
         description: String,
         beginMillis: Long,
         endMillis: Long?,
-    ): Result<SyncResult> =
-        runCatching {
-            val zone = userZone()
-            api().updateEntry(
-                entryId,
-                description,
-                Fmt.apiLocal(beginMillis, zone),
-                endMillis?.let { Fmt.apiLocal(it, zone) },
-            )
-            sync().getOrThrow()
+    ): Result<SyncResult> {
+        val zone = userZone()
+        val begin = Fmt.apiLocal(beginMillis, zone)
+        val end = endMillis?.let { Fmt.apiLocal(it, zone) }
+        return perform(PendingAction.Update(entryId, description, begin, end), updateTile = true) {
+            api().updateEntry(entryId, description, begin, end)
         }
+    }
 
     suspend fun refreshSurfaces(
         state: TimerState,
@@ -211,5 +344,8 @@ class TimerRepository(context: Context) {
 
     private companion object {
         const val PROFILE_TTL_MS = 6 * 60 * 60 * 1000L
+
+        /** One replay at a time across the app, widget, tile and worker. */
+        val queueLock = Mutex()
     }
 }

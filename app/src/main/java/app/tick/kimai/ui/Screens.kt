@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -331,6 +332,18 @@ private fun HomeScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (ui.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if (ui.pending > 0) {
+                Text(
+                    if (ui.pending == 1) "1 change waiting to sync" else "${ui.pending} changes waiting to sync",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
 
             val finished = ui.entries.filter { !it.isRunning }
             val byDay = finished.groupBy { Fmt.localDate(it.beginMillis) }

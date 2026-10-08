@@ -32,6 +32,7 @@ data class UiState(
     val selectedActivity: Activity? = null,
     val description: String = "",
     val week: WeekTotals? = null,
+    val pending: Int = 0,
     val weekTargetOverride: Long = 0L,
     /** 0 is this week, -1 last week, and so on. The list and totals show this week. */
     val weekOffset: Int = 0,
@@ -52,6 +53,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 timer = prefs.timerState(),
                 timeMode = prefs.timeMode,
                 week = prefs.weekTotals(),
+                pending = prefs.pendingCount(),
                 weekTargetOverride = prefs.weekTargetOverride,
                 firstWeekday = prefs.firstWeekday,
             ),
@@ -86,13 +88,18 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             if (offset == 0) {
                 it.copy(
                     timer = r.state,
-                    running = r.running,
-                    entries = r.entries,
+                    running = if (r.entries != null) r.running else it.running,
+                    entries = r.entries ?: it.entries,
                     week = r.week ?: it.week,
                     weekStart = r.weekStart ?: it.weekStart,
+                    pending = r.pending,
                 )
             } else {
-                it.copy(timer = r.state, running = r.running)
+                it.copy(
+                    timer = r.state,
+                    running = if (r.entries != null) r.running else it.running,
+                    pending = r.pending,
+                )
             }
         }
         if (offset != 0) viewModelScope.launch { runCatching { loadWeekView(offset) } }
@@ -186,7 +193,9 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             val activity = s.selectedActivity ?: error("Choose an activity")
             prefs.lastProjectId = project.id
             prefs.lastActivityId = activity.id
-            apply(repo.start(project.id, activity.id, s.description.trim()).getOrThrow())
+            apply(
+                repo.start(project.id, activity.id, s.description.trim(), project.name, activity.name).getOrThrow(),
+            )
             _ui.update { it.copy(description = "") }
         }
 
@@ -197,7 +206,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun restart(entry: Entry) =
         launchBusy {
-            apply(repo.restart(entry.id).getOrThrow())
+            apply(repo.restart(entry.id, entry.project.name, entry.activityLabel).getOrThrow())
         }
 
     fun restartLast() =

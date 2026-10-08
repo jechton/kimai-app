@@ -50,6 +50,15 @@ class Prefs(context: Context) {
 
     fun saveWeekDone(seconds: Long) = sp.edit { putLong("week_done", seconds) }
 
+    fun pending(): List<PendingAction> = PendingAction.decodeList(sp.getString("pending", "").orEmpty())
+
+    fun savePending(list: List<PendingAction>) =
+        sp.edit {
+            if (list.isEmpty()) remove("pending") else putString("pending", PendingAction.encodeList(list))
+        }
+
+    fun pendingCount(): Int = pending().size
+
     var timeMode: Int
         get() = sp.getInt("time_mode", TimeMode.SYSTEM)
         set(v) = sp.edit { putInt("time_mode", v) }
