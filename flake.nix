@@ -52,11 +52,7 @@
           shellHook = ''
             echo "Tick dev shell."
             echo "With direnv (PATH_add scripts), or by calling scripts/tick directly:"
-            echo "  tick build      ./gradlew assembleDebug"
-            echo "  tick install    ./gradlew installDebug      (phone or emulator connected over adb)"
-            echo "  tick avd        create the emulator once"
-            echo "  tick emulator   launch it"
-            echo "  tick run        installDebug, then launch the app on the connected device"
+            scripts/tick help
           '';
         };
       });
