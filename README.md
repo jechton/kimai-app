@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/jechton/kimai-app/actions/workflows/ci.yml/badge.svg)](https://github.com/jechton/kimai-app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jechton/kimai-app)](https://github.com/jechton/kimai-app/releases)
+[<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/jechton/kimai-app)
 
 Android client for [Kimai](https://www.kimai.org). Kotlin, Jetpack Compose, Material 3 with dynamic color.
 
