@@ -9,3 +9,17 @@ captures/
 .kotlin/
 .claude/settings.local.json
 *.keystore
+
+# From https://www.toptal.com/developers/gitignore/api/android
+*.log
+.externalNativeBuild/
+.cxx/
+*.apk
+output.json
+misc.xml
+deploymentTargetDropDown.xml
+render.experimental.xml
+*.jks
+google-services.json
+*.hprof
+gen-external-apklibs
