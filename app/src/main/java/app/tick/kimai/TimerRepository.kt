@@ -58,10 +58,14 @@ class TimerRepository(context: Context) {
             ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
             ?: ZoneId.systemDefault()
 
+    /** Kimai's first day of the week, or Monday when the server doesn't say. */
+    private fun firstDay(): DayOfWeek =
+        runCatching { DayOfWeek.valueOf(prefs.firstWeekday.uppercase()) }.getOrDefault(DayOfWeek.MONDAY)
+
     /** Caches the Kimai profile bits the week total needs: timezone, week start and contract. */
     fun saveProfile(me: Me) {
         prefs.userTimezone = me.timezone.orEmpty()
-        prefs.firstWeekday = me.firstWeekday ?: "monday"
+        prefs.firstWeekday = me.firstWeekday.orEmpty()
         prefs.weekTarget = me.weekTargetSeconds
         prefs.profileFetchedAt = System.currentTimeMillis()
     }
@@ -72,12 +76,9 @@ class TimerRepository(context: Context) {
      */
     private suspend fun loadWeek(offset: Int): WeekView {
         val stale = System.currentTimeMillis() - prefs.profileFetchedAt > PROFILE_TTL_MS
-        if (stale || prefs.firstWeekday.isBlank()) runCatching { saveProfile(api().me()) }
+        if (stale) runCatching { saveProfile(api().me()) }
         val zone = userZone()
-        val first =
-            runCatching { DayOfWeek.valueOf(prefs.firstWeekday.uppercase()) }
-                .getOrDefault(DayOfWeek.MONDAY)
-        val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(first)).plusWeeks(offset.toLong())
+        val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(firstDay())).plusWeeks(offset.toLong())
         val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
         val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
         val entries = api().between(begin, end).sortedByDescending { it.beginMillis }

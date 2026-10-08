@@ -100,6 +100,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -107,6 +108,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
@@ -290,6 +292,11 @@ private fun HomeScreen(
                             Icon(Icons.Default.MoreVert, contentDescription = "More")
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(weekStartLabel(ui.firstWeekday)) },
+                                enabled = false,
+                                onClick = {},
+                            )
                             DropdownMenuItem(
                                 text = { Text("Time format") },
                                 onClick = {
@@ -485,6 +492,13 @@ private fun HomeScreen(
             confirmButton = { TextButton(onClick = { showTimeDialog = false }) { Text("Close") } },
         )
     }
+}
+
+/** Shows which day Kimai says the week starts on, so a wrong week is easy to trace. */
+private fun weekStartLabel(firstWeekday: String): String {
+    val day = runCatching { DayOfWeek.valueOf(firstWeekday.uppercase()) }.getOrNull()
+    val name = (day ?: DayOfWeek.MONDAY).getDisplayName(TextStyle.FULL, Locale.getDefault())
+    return if (day != null) "Week starts on $name (from Kimai)" else "Week starts on $name (default)"
 }
 
 @Composable
