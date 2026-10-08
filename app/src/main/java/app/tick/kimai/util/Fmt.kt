@@ -67,6 +67,7 @@ object Fmt {
         return "%d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
     }
 
+    /** Compact hours for day headers and the widget, e.g. 7h 45m. */
     fun hoursMinutes(seconds: Long): String {
         val m = seconds.coerceAtLeast(0) / 60
         return "%dh %02dm".format(m / 60, m % 60)

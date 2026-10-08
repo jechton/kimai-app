@@ -6,8 +6,10 @@ import android.service.quicksettings.TileService
 import androidx.glance.appwidget.updateAll
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiApi
+import app.tick.kimai.data.Me
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.notify.TimerNotifier
 import app.tick.kimai.tile.TimerTileService
 import app.tick.kimai.util.Fmt
@@ -19,7 +21,7 @@ import java.time.temporal.TemporalAdjusters
 
 class NotSignedIn : IllegalStateException("Not signed in")
 
-data class SyncResult(val state: TimerState, val entries: List<Entry>)
+data class SyncResult(val state: TimerState, val entries: List<Entry>, val week: WeekTotals? = null)
 
 /**
  * Single place that talks to Kimai for timer actions and keeps the cached state,
@@ -39,26 +41,34 @@ class TimerRepository(context: Context) {
             ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
             ?: ZoneId.systemDefault()
 
-    /** Seconds tracked this week, where the week starts on the Kimai user's first day of the week. */
-    suspend fun weekSeconds(): Result<Long> =
-        runCatching {
-            val zone = userZone()
-            if (prefs.firstWeekday.isBlank()) prefs.firstWeekday = api().me().firstWeekday ?: "monday"
-            val first =
-                runCatching { DayOfWeek.valueOf(prefs.firstWeekday.uppercase()) }
-                    .getOrDefault(DayOfWeek.MONDAY)
-            val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(first))
-            val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
-            val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
-            val now = System.currentTimeMillis()
-            api().between(begin, end).sumOf {
-                if (it.isRunning) ((now - it.beginMillis) / 1000).coerceAtLeast(0) else it.seconds
-            }
-        }
+    /** Caches the Kimai profile bits the week total needs: timezone, week start and contract. */
+    fun saveProfile(me: Me) {
+        prefs.userTimezone = me.timezone.orEmpty()
+        prefs.firstWeekday = me.firstWeekday ?: "monday"
+        prefs.weekTarget = me.weekTargetSeconds
+        prefs.profileFetchedAt = System.currentTimeMillis()
+    }
+
+    /** Finished time this week, where the week starts on the Kimai user's first day of the week. */
+    private suspend fun loadWeek(): WeekTotals {
+        val stale = System.currentTimeMillis() - prefs.profileFetchedAt > PROFILE_TTL_MS
+        if (stale || prefs.firstWeekday.isBlank()) runCatching { saveProfile(api().me()) }
+        val zone = userZone()
+        val first =
+            runCatching { DayOfWeek.valueOf(prefs.firstWeekday.uppercase()) }
+                .getOrDefault(DayOfWeek.MONDAY)
+        val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(first))
+        val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
+        val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
+        val done = api().between(begin, end).filter { !it.isRunning }.sumOf { it.seconds }
+        prefs.saveWeekDone(done)
+        return WeekTotals(done, prefs.weekTarget)
+    }
 
     suspend fun sync(
         size: Int = 40,
         updateTile: Boolean = true,
+        withWeek: Boolean = true,
     ): Result<SyncResult> =
         runCatching {
             val entries = api().recent(size)
@@ -77,8 +87,9 @@ class TimerRepository(context: Context) {
                     lastLabel = last?.label ?: old.lastLabel,
                 )
             prefs.saveTimerState(state)
+            val week = (if (withWeek) runCatching { loadWeek() }.getOrNull() else null) ?: prefs.weekTotals()
             refreshSurfaces(state, updateTile)
-            SyncResult(state, entries)
+            SyncResult(state, entries, week)
         }
 
     suspend fun start(
@@ -128,7 +139,7 @@ class TimerRepository(context: Context) {
     /** Used by the widget and tile: stop if running, otherwise restart the last entry. */
     suspend fun toggle(updateTile: Boolean = true): Result<SyncResult> =
         runCatching {
-            val current = sync(size = 10, updateTile = updateTile).getOrThrow()
+            val current = sync(size = 10, updateTile = updateTile, withWeek = false).getOrThrow()
             if (current.state.running) {
                 api().stop(current.state.id)
             } else {
@@ -173,5 +184,9 @@ class TimerRepository(context: Context) {
                 TileService.requestListeningState(app, ComponentName(app, TimerTileService::class.java))
             }
         }
+    }
+
+    private companion object {
+        const val PROFILE_TTL_MS = 6 * 60 * 60 * 1000L
     }
 }

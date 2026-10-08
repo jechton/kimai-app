@@ -65,11 +65,25 @@ data class Me(
     val timezone: String? = null,
     val preferences: List<Pref> = emptyList(),
 ) {
+    private fun pref(name: String): String? =
+        preferences.firstOrNull { it.name == name }?.value?.let { (it as? JsonPrimitive)?.content }
+
     /** Kimai's per-user "first day of the week" preference, e.g. "monday" or "sunday". */
-    val firstWeekday: String?
+    val firstWeekday: String? get() = pref("first_weekday")
+
+    /**
+     * Contracted seconds per week, or 0 when none is configured. Kimai stores the contract as
+     * seconds, either as a weekly total or as one value per day. Monthly contracts give no weekly target.
+     */
+    val weekTargetSeconds: Long
         get() =
-            preferences.firstOrNull { it.name == "first_weekday" }
-                ?.value?.let { (it as? JsonPrimitive)?.content }
+            when (pref("work_contract_type")) {
+                "week" -> pref("hours_per_week")?.toLongOrNull() ?: 0L
+                "day" ->
+                    listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+                        .sumOf { pref("work_$it")?.toLongOrNull() ?: 0L }
+                else -> 0L
+            }.coerceAtLeast(0L)
 }
 
 @Serializable
@@ -103,3 +117,12 @@ data class TimerState(
     val lastId: Int = 0,
     val lastLabel: String = "",
 )
+
+/** Seconds tracked in finished entries this week, and the contracted target (0 = none). */
+data class WeekTotals(val doneSeconds: Long, val targetSeconds: Long) {
+    /** Adds the running timer's elapsed time, which grows between syncs. */
+    fun total(
+        timer: TimerState,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): Long = doneSeconds + if (timer.running) ((nowMillis - timer.beginMillis) / 1000).coerceAtLeast(0) else 0L
+}

@@ -28,6 +28,21 @@ class Prefs(context: Context) {
         get() = sp.getString("first_weekday", "").orEmpty()
         set(v) = sp.edit { putString("first_weekday", v) }
 
+    /** Contracted seconds per week from Kimai, 0 when none. */
+    var weekTarget: Long
+        get() = sp.getLong("week_target", 0L)
+        set(v) = sp.edit { putLong("week_target", v) }
+
+    /** When the user profile (week start, contract) was last read from Kimai. */
+    var profileFetchedAt: Long
+        get() = sp.getLong("profile_at", 0L)
+        set(v) = sp.edit { putLong("profile_at", v) }
+
+    fun weekTotals(): WeekTotals? =
+        sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, weekTarget) }
+
+    fun saveWeekDone(seconds: Long) = sp.edit { putLong("week_done", seconds) }
+
     var timeMode: Int
         get() = sp.getInt("time_mode", TimeMode.SYSTEM)
         set(v) = sp.edit { putInt("time_mode", v) }

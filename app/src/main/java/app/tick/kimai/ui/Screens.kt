@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,6 +86,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
+import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
 import app.tick.kimai.util.Fmt
@@ -320,24 +323,34 @@ private fun HomeScreen(
             ) {
                 item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
 
-                ui.weekSeconds?.let { secs ->
-                    item(key = "week") {
-                        Text(
-                            "This week: ${Fmt.hoursMinutes(secs)}",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(top = 4.dp, start = 4.dp),
-                        )
-                    }
+                ui.week?.let { week ->
+                    item(key = "week") { WeekSummary(week, ui.timer) }
                 }
 
                 byDay.forEach { (day, list) ->
                     item(key = "day-$day") {
-                        Text(
-                            Fmt.dayLabel(day),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 12.dp, start = 4.dp),
-                        )
+                        val running = ui.entries.firstOrNull { it.isRunning }
+                        val runningSecs =
+                            if (running != null && Fmt.localDate(running.beginMillis) == day) {
+                                ((System.currentTimeMillis() - running.beginMillis) / 1000).coerceAtLeast(0)
+                            } else {
+                                0L
+                            }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, start = 4.dp, end = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                Fmt.dayLabel(day),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                Fmt.hoursMinutes(list.sumOf { it.seconds } + runningSecs),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     items(list, key = { it.id }) { entry ->
                         EntryRow(
@@ -427,6 +440,30 @@ private fun HomeScreen(
             },
             confirmButton = { TextButton(onClick = { showTimeDialog = false }) { Text("Close") } },
         )
+    }
+}
+
+@Composable
+private fun WeekSummary(
+    week: WeekTotals,
+    timer: TimerState,
+) {
+    val total = week.total(timer)
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp, end = 4.dp)) {
+        val text =
+            if (week.targetSeconds > 0) {
+                "This week: ${Fmt.hoursMinutes(total)} of ${Fmt.hoursMinutes(week.targetSeconds)}"
+            } else {
+                "This week: ${Fmt.hoursMinutes(total)}"
+            }
+        Text(text, style = MaterialTheme.typography.titleMedium)
+        if (week.targetSeconds > 0) {
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { (total.toFloat() / week.targetSeconds).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

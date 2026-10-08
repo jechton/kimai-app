@@ -9,6 +9,7 @@ import app.tick.kimai.data.KimaiApi
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.Project
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,7 @@ data class UiState(
     val selectedProject: Project? = null,
     val selectedActivity: Activity? = null,
     val description: String = "",
-    val weekSeconds: Long? = null,
+    val week: WeekTotals? = null,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -38,7 +39,12 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private val _ui =
         MutableStateFlow(
-            UiState(loggedIn = prefs.loggedIn, timer = prefs.timerState(), timeMode = prefs.timeMode),
+            UiState(
+                loggedIn = prefs.loggedIn,
+                timer = prefs.timerState(),
+                timeMode = prefs.timeMode,
+                week = prefs.weekTotals(),
+            ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
@@ -64,10 +70,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         }
 
     private fun apply(r: SyncResult) {
-        _ui.update { it.copy(timer = r.state, entries = r.entries) }
-        viewModelScope.launch {
-            repo.weekSeconds().onSuccess { s -> _ui.update { it.copy(weekSeconds = s) } }
-        }
+        _ui.update { it.copy(timer = r.state, entries = r.entries, week = r.week ?: it.week) }
     }
 
     fun clearError() = _ui.update { it.copy(error = null) }
@@ -86,8 +89,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         prefs.serverUrl = url
         prefs.token = cleanToken
         prefs.username = legacyUser
-        prefs.userTimezone = me.timezone.orEmpty()
-        prefs.firstWeekday = me.firstWeekday.orEmpty()
+        repo.saveProfile(me)
         _ui.update { it.copy(loggedIn = true) }
         apply(repo.sync().getOrThrow())
         loadProjects()
