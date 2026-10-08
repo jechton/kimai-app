@@ -9,6 +9,7 @@ import app.tick.kimai.data.KimaiApi
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.Project
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.net.UnknownHostException
+import java.time.LocalDate
 
 data class UiState(
     val loggedIn: Boolean,
@@ -29,6 +31,14 @@ data class UiState(
     val selectedProject: Project? = null,
     val selectedActivity: Activity? = null,
     val description: String = "",
+    val week: WeekTotals? = null,
+    val weekTargetOverride: Long = 0L,
+    /** 0 is this week, -1 last week, and so on. The list and totals show this week. */
+    val weekOffset: Int = 0,
+    val weekStart: LocalDate? = null,
+    val running: Entry? = null,
+    /** Kimai's first day of the week as sent by the server, blank if it sent none. */
+    val firstWeekday: String = "",
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -37,7 +47,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private val _ui =
         MutableStateFlow(
-            UiState(loggedIn = prefs.loggedIn, timer = prefs.timerState(), timeMode = prefs.timeMode),
+            UiState(
+                loggedIn = prefs.loggedIn,
+                timer = prefs.timerState(),
+                timeMode = prefs.timeMode,
+                week = prefs.weekTotals(),
+                weekTargetOverride = prefs.weekTargetOverride,
+                firstWeekday = prefs.firstWeekday,
+            ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
@@ -63,7 +80,22 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         }
 
     private fun apply(r: SyncResult) {
-        _ui.update { it.copy(timer = r.state, entries = r.entries) }
+        val offset = _ui.value.weekOffset
+        _ui.update { it.copy(firstWeekday = prefs.firstWeekday) }
+        _ui.update {
+            if (offset == 0) {
+                it.copy(
+                    timer = r.state,
+                    running = r.running,
+                    entries = r.entries,
+                    week = r.week ?: it.week,
+                    weekStart = r.weekStart ?: it.weekStart,
+                )
+            } else {
+                it.copy(timer = r.state, running = r.running)
+            }
+        }
+        if (offset != 0) viewModelScope.launch { runCatching { loadWeekView(offset) } }
     }
 
     fun clearError() = _ui.update { it.copy(error = null) }
@@ -82,7 +114,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         prefs.serverUrl = url
         prefs.token = cleanToken
         prefs.username = legacyUser
-        prefs.userTimezone = me.timezone.orEmpty()
+        repo.saveProfile(me)
         _ui.update { it.copy(loggedIn = true) }
         apply(repo.sync().getOrThrow())
         loadProjects()
@@ -110,6 +142,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             apply(repo.sync().getOrThrow())
             if (_ui.value.projects.isEmpty()) loadProjects()
         }
+
+    private suspend fun loadWeekView(offset: Int) {
+        val v = repo.weekView(offset).getOrThrow()
+        _ui.update { it.copy(weekOffset = offset, weekStart = v.start, entries = v.entries, week = v.totals) }
+    }
+
+    /** offset 0 is this week, -1 last week. Later weeks don't exist yet. */
+    fun showWeek(offset: Int) = launchBusy { loadWeekView(offset.coerceAtMost(0)) }
 
     private suspend fun loadProjects() {
         val api = repo.apiOrNull() ?: return
@@ -190,6 +230,18 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     // Settings
+
+    /** Hours per week typed in the app, or null to go back to the Kimai contract. */
+    fun setWeekTarget(hours: Double?) {
+        prefs.weekTargetOverride = hours?.takeIf { it > 0 }?.let { (it * 3600).toLong() } ?: 0L
+        _ui.update {
+            it.copy(
+                weekTargetOverride = prefs.weekTargetOverride,
+                week = it.week?.copy(targetSeconds = prefs.effectiveWeekTarget),
+            )
+        }
+        viewModelScope.launch { repo.refreshSurfaces(prefs.timerState()) }
+    }
 
     fun setTimeMode(mode: Int) {
         prefs.timeMode = mode

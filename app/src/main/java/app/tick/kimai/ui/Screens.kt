@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,6 +24,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
@@ -87,6 +90,8 @@ import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
+import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.util.Fmt
 import app.tick.kimai.util.QrImage
 import app.tick.kimai.util.TimeMode
@@ -94,12 +99,16 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.time.format.TextStyle
+import java.util.Locale
 
 @Composable
 fun TickRoot(vm: MainViewModel) {
@@ -239,6 +248,7 @@ private fun HomeScreen(
     val snackbar = remember { SnackbarHostState() }
     var menuOpen by remember { mutableStateOf(false) }
     var showTimeDialog by remember { mutableStateOf(false) }
+    var showTargetDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Entry?>(null) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
     var adding by remember { mutableStateOf(false) }
@@ -282,10 +292,22 @@ private fun HomeScreen(
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
+                                text = { Text(weekStartLabel(ui.firstWeekday)) },
+                                enabled = false,
+                                onClick = {},
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Time format") },
                                 onClick = {
                                     menuOpen = false
                                     showTimeDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Weekly target") },
+                                onClick = {
+                                    menuOpen = false
+                                    showTargetDialog = true
                                 },
                             )
                             DropdownMenuItem(
@@ -320,14 +342,42 @@ private fun HomeScreen(
             ) {
                 item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
 
+                ui.week?.let { week ->
+                    item(key = "week") {
+                        WeekSummary(
+                            week = week,
+                            timer = ui.timer.takeIf { ui.weekOffset == 0 },
+                            offset = ui.weekOffset,
+                            start = ui.weekStart,
+                            onShow = { vm.showWeek(it) },
+                        )
+                    }
+                }
+
                 byDay.forEach { (day, list) ->
                     item(key = "day-$day") {
-                        Text(
-                            Fmt.dayLabel(day),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 12.dp, start = 4.dp),
-                        )
+                        val running = ui.running.takeIf { ui.weekOffset == 0 }
+                        val runningSecs =
+                            if (running != null && Fmt.localDate(running.beginMillis) == day) {
+                                ((System.currentTimeMillis() - running.beginMillis) / 1000).coerceAtLeast(0)
+                            } else {
+                                0L
+                            }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, start = 4.dp, end = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                Fmt.dayLabel(day),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                Fmt.hoursMinutes(list.sumOf { it.seconds } + runningSecs),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     items(list, key = { it.id }) { entry ->
                         EntryRow(
@@ -382,6 +432,17 @@ private fun HomeScreen(
         )
     }
 
+    if (showTargetDialog) {
+        WeekTargetDialog(
+            currentSeconds = ui.weekTargetOverride,
+            onDismiss = { showTargetDialog = false },
+            onSave = {
+                vm.setWeekTarget(it)
+                showTargetDialog = false
+            },
+        )
+    }
+
     if (showTimeDialog) {
         AlertDialog(
             onDismissRequest = { showTimeDialog = false },
@@ -420,6 +481,103 @@ private fun HomeScreen(
     }
 }
 
+/** Shows which day Kimai says the week starts on, so a wrong week is easy to trace. */
+private fun weekStartLabel(firstWeekday: String): String {
+    val day = runCatching { DayOfWeek.valueOf(firstWeekday.uppercase()) }.getOrNull()
+    val name = (day ?: DayOfWeek.MONDAY).getDisplayName(TextStyle.FULL, Locale.getDefault())
+    return if (day != null) "Week starts on $name (from Kimai)" else "Week starts on $name (default)"
+}
+
+@Composable
+private fun WeekTargetDialog(
+    currentSeconds: Long,
+    onDismiss: () -> Unit,
+    onSave: (Double?) -> Unit,
+) {
+    var text by remember {
+        mutableStateOf(if (currentSeconds > 0) (currentSeconds / 3600.0).toString().removeSuffix(".0") else "")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Weekly target") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Hours per week") },
+                supportingText = { Text("Leave empty to use your Kimai contract") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text.replace(',', '.').trim().toDoubleOrNull()) }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun WeekSummary(
+    week: WeekTotals,
+    timer: TimerState?,
+    offset: Int,
+    start: LocalDate?,
+    onShow: (Int) -> Unit,
+) {
+    val total = if (timer != null) week.total(timer) else week.doneSeconds
+    val title =
+        when (offset) {
+            0 -> "This week"
+            -1 -> "Last week"
+            else -> "${-offset} weeks ago"
+        }
+    val range =
+        start?.let {
+            val f = DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
+            "${f.format(it)} \u2013 ${f.format(it.plusDays(6))}"
+        }
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(onClick = { onShow(offset - 1) }) {
+                Icon(Icons.Default.ChevronLeft, contentDescription = "Previous week")
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                if (range != null) {
+                    Text(
+                        range,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            IconButton(onClick = { onShow(offset + 1) }, enabled = offset < 0) {
+                Icon(Icons.Default.ChevronRight, contentDescription = "Next week")
+            }
+        }
+        val text =
+            if (week.targetSeconds > 0) {
+                "${Fmt.hoursMinutes(total)} of ${Fmt.hoursMinutes(week.targetSeconds)}"
+            } else {
+                Fmt.hoursMinutes(total)
+            }
+        Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 4.dp))
+        if (week.targetSeconds > 0) {
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { (total.toFloat() / week.targetSeconds).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            )
+        }
+    }
+}
+
 // Timer card
 
 @Composable
@@ -453,7 +611,7 @@ private fun TimerCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(t.project, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    ui.entries.firstOrNull { it.isRunning }?.let { entry ->
+                    ui.running?.let { entry ->
                         IconButton(onClick = { onEdit(entry) }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit running entry")
                         }
