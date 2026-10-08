@@ -21,7 +21,17 @@ import java.time.temporal.TemporalAdjusters
 
 class NotSignedIn : IllegalStateException("Not signed in")
 
-data class SyncResult(val state: TimerState, val entries: List<Entry>, val week: WeekTotals? = null)
+data class SyncResult(
+    val state: TimerState,
+    /** This week's entries, or the most recent ones if the week could not be loaded. */
+    val entries: List<Entry>,
+    val week: WeekTotals? = null,
+    /** The running entry, which may have started before this week. */
+    val running: Entry? = null,
+    val weekStart: LocalDate? = null,
+)
+
+data class WeekView(val start: LocalDate, val entries: List<Entry>, val totals: WeekTotals)
 
 /**
  * Single place that talks to Kimai for timer actions and keeps the cached state,
@@ -49,21 +59,27 @@ class TimerRepository(context: Context) {
         prefs.profileFetchedAt = System.currentTimeMillis()
     }
 
-    /** Finished time this week, where the week starts on the Kimai user's first day of the week. */
-    private suspend fun loadWeek(): WeekTotals {
+    /**
+     * Every entry in the week [offset] weeks back (0 = this week) plus its finished total. The week starts
+     * on the Kimai user's first day of the week. The current week's total is cached for the widget.
+     */
+    private suspend fun loadWeek(offset: Int): WeekView {
         val stale = System.currentTimeMillis() - prefs.profileFetchedAt > PROFILE_TTL_MS
         if (stale || prefs.firstWeekday.isBlank()) runCatching { saveProfile(api().me()) }
         val zone = userZone()
         val first =
             runCatching { DayOfWeek.valueOf(prefs.firstWeekday.uppercase()) }
                 .getOrDefault(DayOfWeek.MONDAY)
-        val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(first))
+        val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(first)).plusWeeks(offset.toLong())
         val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
         val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
-        val done = api().between(begin, end).filter { !it.isRunning }.sumOf { it.seconds }
-        prefs.saveWeekDone(done)
-        return WeekTotals(done, prefs.effectiveWeekTarget)
+        val entries = api().between(begin, end).sortedByDescending { it.beginMillis }
+        val done = entries.filter { !it.isRunning }.sumOf { it.seconds }
+        if (offset == 0) prefs.saveWeekDone(done)
+        return WeekView(start, entries, WeekTotals(done, prefs.effectiveWeekTarget))
     }
+
+    suspend fun weekView(offset: Int): Result<WeekView> = runCatching { loadWeek(offset) }
 
     suspend fun sync(
         size: Int = 40,
@@ -71,9 +87,9 @@ class TimerRepository(context: Context) {
         withWeek: Boolean = true,
     ): Result<SyncResult> =
         runCatching {
-            val entries = api().recent(size)
-            val running = entries.firstOrNull { it.isRunning }
-            val last = entries.firstOrNull { !it.isRunning }
+            val recent = api().recent(size)
+            val running = recent.firstOrNull { it.isRunning }
+            val last = recent.firstOrNull { !it.isRunning }
             val old = prefs.timerState()
             val state =
                 TimerState(
@@ -87,9 +103,15 @@ class TimerRepository(context: Context) {
                     lastLabel = last?.label ?: old.lastLabel,
                 )
             prefs.saveTimerState(state)
-            val week = (if (withWeek) runCatching { loadWeek() }.getOrNull() else null) ?: prefs.weekTotals()
+            val view = if (withWeek) runCatching { loadWeek(0) }.getOrNull() else null
             refreshSurfaces(state, updateTile)
-            SyncResult(state, entries, week)
+            SyncResult(
+                state = state,
+                entries = view?.entries ?: recent,
+                week = view?.totals ?: prefs.weekTotals(),
+                running = running,
+                weekStart = view?.start,
+            )
         }
 
     suspend fun start(

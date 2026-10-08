@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.net.UnknownHostException
+import java.time.LocalDate
 
 data class UiState(
     val loggedIn: Boolean,
@@ -32,6 +33,10 @@ data class UiState(
     val description: String = "",
     val week: WeekTotals? = null,
     val weekTargetOverride: Long = 0L,
+    /** 0 is this week, -1 last week, and so on. The list and totals show this week. */
+    val weekOffset: Int = 0,
+    val weekStart: LocalDate? = null,
+    val running: Entry? = null,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -72,7 +77,21 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         }
 
     private fun apply(r: SyncResult) {
-        _ui.update { it.copy(timer = r.state, entries = r.entries, week = r.week ?: it.week) }
+        val offset = _ui.value.weekOffset
+        _ui.update {
+            if (offset == 0) {
+                it.copy(
+                    timer = r.state,
+                    running = r.running,
+                    entries = r.entries,
+                    week = r.week ?: it.week,
+                    weekStart = r.weekStart ?: it.weekStart,
+                )
+            } else {
+                it.copy(timer = r.state, running = r.running)
+            }
+        }
+        if (offset != 0) viewModelScope.launch { runCatching { loadWeekView(offset) } }
     }
 
     fun clearError() = _ui.update { it.copy(error = null) }
@@ -119,6 +138,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             apply(repo.sync().getOrThrow())
             if (_ui.value.projects.isEmpty()) loadProjects()
         }
+
+    private suspend fun loadWeekView(offset: Int) {
+        val v = repo.weekView(offset).getOrThrow()
+        _ui.update { it.copy(weekOffset = offset, weekStart = v.start, entries = v.entries, week = v.totals) }
+    }
+
+    /** offset 0 is this week, -1 last week. Later weeks don't exist yet. */
+    fun showWeek(offset: Int) = launchBusy { loadWeekView(offset.coerceAtMost(0)) }
 
     private suspend fun loadProjects() {
         val api = repo.apiOrNull() ?: return
