@@ -1,8 +1,12 @@
 package app.tick.kimai.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -91,6 +95,7 @@ import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
+import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
 import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.util.Fmt
@@ -265,6 +270,47 @@ private fun HomeScreen(
         ) {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    val prefs = remember { Prefs(context) }
+    var showBatteryDialog by remember {
+        mutableStateOf(
+            !prefs.batteryPromptDismissed &&
+                !context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName),
+        )
+    }
+    if (showBatteryDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showBatteryDialog = false
+                prefs.batteryPromptDismissed = true
+            },
+            title = { Text("Keep background sync reliable") },
+            text = {
+                Text(
+                    "Android's battery optimization can delay or skip the background check for " +
+                        "timers started elsewhere. Exempting Tick keeps the notification and widget in sync.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBatteryDialog = false
+                    prefs.batteryPromptDismissed = true
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:${context.packageName}"),
+                        ),
+                    )
+                }) { Text("Turn off") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBatteryDialog = false
+                    prefs.batteryPromptDismissed = true
+                }) { Text("Not now") }
+            },
+        )
     }
 
     LifecycleResumeEffect(Unit) {

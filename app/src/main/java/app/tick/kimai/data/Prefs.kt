@@ -71,6 +71,11 @@ class Prefs(context: Context) {
         get() = sp.getInt("last_activity", 0)
         set(v) = sp.edit { putInt("last_activity", v) }
 
+    /** Whether the user dismissed the battery optimization prompt (don't ask again). */
+    var batteryPromptDismissed: Boolean
+        get() = sp.getBoolean("battery_prompt_dismissed", false)
+        set(v) = sp.edit { putBoolean("battery_prompt_dismissed", v) }
+
     val loggedIn: Boolean get() = serverUrl.isNotBlank() && token.isNotBlank()
 
     fun timerState() =
