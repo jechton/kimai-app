@@ -63,13 +63,12 @@ class TickWidget : GlanceAppWidget() {
                 val total = Fmt.hoursMinutes(it.total(state))
                 if (it.targetSeconds > 0) "Week: $total / ${Fmt.hoursMinutes(it.targetSeconds)}" else "Week: $total"
             }
-        val weekProgress =
-            weekTotals?.takeIf { it.targetSeconds > 0 }
-                ?.let { (it.total(state).toFloat() / it.targetSeconds).coerceIn(0f, 1f) }
+        val weekFraction =
+            weekTotals?.takeIf { it.targetSeconds > 0 }?.let { it.total(state).toFloat() / it.targetSeconds }
         val rows = dayRows(prefs.recentEntries(), context, prefs.timeMode)
         provideContent {
             GlanceTheme {
-                WidgetContent(state, since, week, weekProgress, rows)
+                WidgetContent(state, since, week, weekFraction, rows)
             }
         }
     }
@@ -80,7 +79,7 @@ private fun WidgetContent(
     s: TimerState,
     since: String,
     week: String?,
-    weekProgress: Float?,
+    weekFraction: Float?,
     rows: List<DayRow>,
 ) {
     val size = LocalSize.current
@@ -146,13 +145,18 @@ private fun WidgetContent(
                     ),
             )
         }
-        if (weekProgress != null && size.height >= MEDIUM.height) {
+        if (weekFraction != null && size.height >= MEDIUM.height) {
             Spacer(modifier = GlanceModifier.height(6.dp))
             LinearProgressIndicator(
-                progress = weekProgress,
+                progress = weekFraction.coerceIn(0f, 1f),
                 modifier = GlanceModifier.fillMaxWidth(),
                 // Glance's default indicator color is a hardcoded static purple, not theme-aware.
-                color = GlanceTheme.colors.primary,
+                color =
+                    when {
+                        weekFraction >= 1f -> GlanceTheme.colors.error
+                        weekFraction >= 0.9f -> GlanceTheme.colors.tertiary
+                        else -> GlanceTheme.colors.primary
+                    },
                 backgroundColor = GlanceTheme.colors.surfaceVariant,
             )
         }
