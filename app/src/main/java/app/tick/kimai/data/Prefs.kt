@@ -33,13 +33,20 @@ class Prefs(context: Context) {
         get() = sp.getLong("week_target", 0L)
         set(v) = sp.edit { putLong("week_target", v) }
 
+    /** Weekly target typed into the app, in seconds. 0 means use the Kimai contract. */
+    var weekTargetOverride: Long
+        get() = sp.getLong("week_target_override", 0L)
+        set(v) = sp.edit { putLong("week_target_override", v) }
+
+    val effectiveWeekTarget: Long get() = weekTargetOverride.takeIf { it > 0 } ?: weekTarget
+
     /** When the user profile (week start, contract) was last read from Kimai. */
     var profileFetchedAt: Long
         get() = sp.getLong("profile_at", 0L)
         set(v) = sp.edit { putLong("profile_at", v) }
 
     fun weekTotals(): WeekTotals? =
-        sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, weekTarget) }
+        sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, effectiveWeekTarget) }
 
     fun saveWeekDone(seconds: Long) = sp.edit { putLong("week_done", seconds) }
 

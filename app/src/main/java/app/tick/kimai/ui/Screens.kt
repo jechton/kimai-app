@@ -86,10 +86,10 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
-import app.tick.kimai.data.TimerState
-import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
+import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.util.Fmt
 import app.tick.kimai.util.QrImage
 import app.tick.kimai.util.TimeMode
@@ -242,6 +242,7 @@ private fun HomeScreen(
     val snackbar = remember { SnackbarHostState() }
     var menuOpen by remember { mutableStateOf(false) }
     var showTimeDialog by remember { mutableStateOf(false) }
+    var showTargetDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Entry?>(null) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
     var adding by remember { mutableStateOf(false) }
@@ -289,6 +290,13 @@ private fun HomeScreen(
                                 onClick = {
                                     menuOpen = false
                                     showTimeDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Weekly target") },
+                                onClick = {
+                                    menuOpen = false
+                                    showTargetDialog = true
                                 },
                             )
                             DropdownMenuItem(
@@ -405,6 +413,17 @@ private fun HomeScreen(
         )
     }
 
+    if (showTargetDialog) {
+        WeekTargetDialog(
+            currentSeconds = ui.weekTargetOverride,
+            onDismiss = { showTargetDialog = false },
+            onSave = {
+                vm.setWeekTarget(it)
+                showTargetDialog = false
+            },
+        )
+    }
+
     if (showTimeDialog) {
         AlertDialog(
             onDismissRequest = { showTimeDialog = false },
@@ -441,6 +460,36 @@ private fun HomeScreen(
             confirmButton = { TextButton(onClick = { showTimeDialog = false }) { Text("Close") } },
         )
     }
+}
+
+@Composable
+private fun WeekTargetDialog(
+    currentSeconds: Long,
+    onDismiss: () -> Unit,
+    onSave: (Double?) -> Unit,
+) {
+    var text by remember {
+        mutableStateOf(if (currentSeconds > 0) (currentSeconds / 3600.0).toString().removeSuffix(".0") else "")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Weekly target") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Hours per week") },
+                supportingText = { Text("Leave empty to use your Kimai contract") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text.replace(',', '.').trim().toDoubleOrNull()) }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

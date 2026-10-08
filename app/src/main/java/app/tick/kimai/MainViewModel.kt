@@ -31,6 +31,7 @@ data class UiState(
     val selectedActivity: Activity? = null,
     val description: String = "",
     val week: WeekTotals? = null,
+    val weekTargetOverride: Long = 0L,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -44,6 +45,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 timer = prefs.timerState(),
                 timeMode = prefs.timeMode,
                 week = prefs.weekTotals(),
+                weekTargetOverride = prefs.weekTargetOverride,
             ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
@@ -197,6 +199,18 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     // Settings
+
+    /** Hours per week typed in the app, or null to go back to the Kimai contract. */
+    fun setWeekTarget(hours: Double?) {
+        prefs.weekTargetOverride = hours?.takeIf { it > 0 }?.let { (it * 3600).toLong() } ?: 0L
+        _ui.update {
+            it.copy(
+                weekTargetOverride = prefs.weekTargetOverride,
+                week = it.week?.copy(targetSeconds = prefs.effectiveWeekTarget),
+            )
+        }
+        viewModelScope.launch { repo.refreshSurfaces(prefs.timerState()) }
+    }
 
     fun setTimeMode(mode: Int) {
         prefs.timeMode = mode

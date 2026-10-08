@@ -62,7 +62,7 @@ class TimerRepository(context: Context) {
         val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
         val done = api().between(begin, end).filter { !it.isRunning }.sumOf { it.seconds }
         prefs.saveWeekDone(done)
-        return WeekTotals(done, prefs.weekTarget)
+        return WeekTotals(done, prefs.effectiveWeekTarget)
     }
 
     suspend fun sync(
