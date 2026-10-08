@@ -37,6 +37,8 @@ data class UiState(
     val weekOffset: Int = 0,
     val weekStart: LocalDate? = null,
     val running: Entry? = null,
+    /** Kimai's first day of the week as sent by the server, blank if it sent none. */
+    val firstWeekday: String = "",
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -51,6 +53,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 timeMode = prefs.timeMode,
                 week = prefs.weekTotals(),
                 weekTargetOverride = prefs.weekTargetOverride,
+                firstWeekday = prefs.firstWeekday,
             ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
@@ -78,6 +81,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private fun apply(r: SyncResult) {
         val offset = _ui.value.weekOffset
+        _ui.update { it.copy(firstWeekday = prefs.firstWeekday) }
         _ui.update {
             if (offset == 0) {
                 it.copy(
