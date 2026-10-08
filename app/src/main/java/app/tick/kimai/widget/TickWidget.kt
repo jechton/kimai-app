@@ -42,9 +42,14 @@ class TickWidget : GlanceAppWidget() {
         val prefs = Prefs(context)
         val state = prefs.timerState()
         val since = if (state.running) Fmt.clock(context, state.beginMillis, prefs.timeMode) else ""
+        val week =
+            prefs.weekTotals()?.let {
+                val total = Fmt.hoursMinutes(it.total(state))
+                if (it.targetSeconds > 0) "Week: $total / ${Fmt.hoursMinutes(it.targetSeconds)}" else "Week: $total"
+            }
         provideContent {
             GlanceTheme {
-                WidgetContent(state, since)
+                WidgetContent(state, since, week)
             }
         }
     }
@@ -54,6 +59,7 @@ class TickWidget : GlanceAppWidget() {
 private fun WidgetContent(
     s: TimerState,
     since: String,
+    week: String?,
 ) {
     val title =
         when {
@@ -96,6 +102,17 @@ private fun WidgetContent(
                     fontSize = 13.sp,
                 ),
         )
+        if (week != null) {
+            Text(
+                text = week,
+                maxLines = 1,
+                style =
+                    TextStyle(
+                        color = GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = 13.sp,
+                    ),
+            )
+        }
         Spacer(modifier = GlanceModifier.height(10.dp))
         Button(
             text = if (s.running) "Stop" else "Start last",
