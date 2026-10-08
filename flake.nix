@@ -71,7 +71,6 @@
         }).overrideAttrs (_: {
           shellHook = ''
             echo "Tick dev shell."
-            echo "With direnv (PATH_add scripts), or by calling scripts/tick directly:"
             scripts/tick help
           '';
         });
