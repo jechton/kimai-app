@@ -12,13 +12,17 @@ android {
     // Must match buildToolsVersion in flake.nix
     buildToolsVersion = "35.0.0"
 
+    // CI sets RELEASE_VERSION from the pushed tag (e.g. "v1.2.3"); local builds fall back below.
+    val releaseVersion = System.getenv("RELEASE_VERSION")?.removePrefix("v") ?: "0.1.0"
+    val (versionMajor, versionMinor, versionPatch) = releaseVersion.split(".").map { it.toInt() }
+
     defaultConfig {
         applicationId = "app.tick.kimai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        // CI sets RELEASE_VERSION from the pushed tag; local builds fall back to this.
-        versionName = System.getenv("RELEASE_VERSION") ?: "0.1.0"
+        // Must stay monotonically increasing across releases (Android/Obtainium update checks).
+        versionCode = versionMajor * 10000 + versionMinor * 100 + versionPatch
+        versionName = releaseVersion
     }
 
     // Set by CI from repo secrets (see .github/workflows/release.yml). Release builds without
@@ -55,6 +59,14 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    applicationVariants.all {
+        outputs.all {
+            if (this is com.android.build.gradle.internal.api.BaseVariantOutputImpl) {
+                outputFileName = "tick-${versionName}.apk"
+            }
+        }
     }
 }
 
