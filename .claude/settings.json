@@ -2,5 +2,18 @@
   "attribution": {
     "commit": "",
     "pr": ""
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v nix >/dev/null || curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm; nix develop .#ci --command true"
+          }
+        ]
+      }
+    ]
   }
 }

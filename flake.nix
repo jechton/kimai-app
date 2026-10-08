@@ -31,29 +31,54 @@
           includeNDK = false;
         };
 
-        sdkRoot = "${androidComposition.androidsdk}/libexec/android-sdk";
+        # Same SDK/build-tools pins as androidComposition, without the
+        # emulator and system image: for environments that only build/lint
+        # (e.g. the claude.ai/code cloud sandbox), where those are dead
+        # weight and can't run anyway (no /dev/kvm).
+        ciAndroidComposition = pkgs.androidenv.composeAndroidPackages {
+          platformVersions = [ platformVersion ];
+          buildToolsVersions = [ buildToolsVersion ];
+          includeEmulator = false;
+          includeSystemImages = false;
+          includeNDK = false;
+        };
+
+        mkDevShell = { androidComposition, extraPackages }:
+          let
+            sdkRoot = "${androidComposition.androidsdk}/libexec/android-sdk";
+          in
+          pkgs.mkShell {
+            packages = [
+              pkgs.jdk17
+              androidComposition.androidsdk
+              pkgs.prek
+            ] ++ extraPackages;
+
+            JAVA_HOME = "${pkgs.jdk17}";
+            ANDROID_HOME = sdkRoot;
+            ANDROID_SDK_ROOT = sdkRoot;
+
+            # AGP downloads its own aapt2 from Maven. That binary is
+            # dynamically linked and does not run on NixOS, so point Gradle
+            # at the Nix one.
+            GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdkRoot}/build-tools/${buildToolsVersion}/aapt2";
+          };
       in
       {
-        devShells.default = pkgs.mkShell {
-          packages = [
-            pkgs.jdk17
-            pkgs.android-tools # adb
-            androidComposition.androidsdk
-          ];
-
-          JAVA_HOME = "${pkgs.jdk17}";
-          ANDROID_HOME = sdkRoot;
-          ANDROID_SDK_ROOT = sdkRoot;
-
-          # AGP downloads its own aapt2 from Maven. That binary is dynamically
-          # linked and does not run on NixOS, so point Gradle at the Nix one.
-          GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdkRoot}/build-tools/${buildToolsVersion}/aapt2";
-
+        devShells.default = (mkDevShell {
+          inherit androidComposition;
+          extraPackages = [ pkgs.android-tools /* adb */ ];
+        }).overrideAttrs (_: {
           shellHook = ''
             echo "Tick dev shell."
             echo "With direnv (PATH_add scripts), or by calling scripts/tick directly:"
             scripts/tick help
           '';
+        });
+
+        devShells.ci = mkDevShell {
+          androidComposition = ciAndroidComposition;
+          extraPackages = [ ];
         };
       });
 }
