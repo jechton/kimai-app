@@ -64,7 +64,7 @@ android {
     applicationVariants.all {
         outputs.all {
             if (this is com.android.build.gradle.internal.api.BaseVariantOutputImpl) {
-                outputFileName = "tick-${versionName}.apk"
+                outputFileName = "tick-$versionName.apk"
             }
         }
     }
