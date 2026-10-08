@@ -98,4 +98,5 @@ app/src/main/java/app/tick/kimai/
 ## Notes
 
 - On Android 14+, a non-foreground-service notification can be swiped away. It comes back on the next sync or app open.
-- Not yet: offline queue, multiple servers.
+- Offline: start, stop, restart, add, edit and delete are queued when the server is unreachable and replayed in order once it is back. A banner shows how many changes are waiting.
+- Not yet: multiple servers.

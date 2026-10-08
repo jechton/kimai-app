@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,10 +87,10 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
-import app.tick.kimai.data.TimerState
-import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
+import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.util.Fmt
 import app.tick.kimai.util.QrImage
 import app.tick.kimai.util.TimeMode
@@ -312,6 +313,18 @@ private fun HomeScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (ui.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if (ui.pending > 0) {
+                Text(
+                    if (ui.pending == 1) "1 change waiting to sync" else "${ui.pending} changes waiting to sync",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.tertiaryContainer)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
 
             val finished = ui.entries.filter { !it.isRunning }
             val byDay = finished.groupBy { Fmt.localDate(it.beginMillis) }

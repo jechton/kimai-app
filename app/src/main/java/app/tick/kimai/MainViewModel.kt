@@ -31,6 +31,7 @@ data class UiState(
     val selectedActivity: Activity? = null,
     val description: String = "",
     val week: WeekTotals? = null,
+    val pending: Int = 0,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -44,6 +45,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 timer = prefs.timerState(),
                 timeMode = prefs.timeMode,
                 week = prefs.weekTotals(),
+                pending = prefs.pendingCount(),
             ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
@@ -70,7 +72,9 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         }
 
     private fun apply(r: SyncResult) {
-        _ui.update { it.copy(timer = r.state, entries = r.entries, week = r.week ?: it.week) }
+        _ui.update {
+            it.copy(timer = r.state, entries = r.entries ?: it.entries, week = r.week ?: it.week, pending = r.pending)
+        }
     }
 
     fun clearError() = _ui.update { it.copy(error = null) }
@@ -153,7 +157,9 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             val activity = s.selectedActivity ?: error("Choose an activity")
             prefs.lastProjectId = project.id
             prefs.lastActivityId = activity.id
-            apply(repo.start(project.id, activity.id, s.description.trim()).getOrThrow())
+            apply(
+                repo.start(project.id, activity.id, s.description.trim(), project.name, activity.name).getOrThrow(),
+            )
             _ui.update { it.copy(description = "") }
         }
 
@@ -164,7 +170,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun restart(entry: Entry) =
         launchBusy {
-            apply(repo.restart(entry.id).getOrThrow())
+            apply(repo.restart(entry.id, entry.project.name, entry.activityLabel).getOrThrow())
         }
 
     fun restartLast() =

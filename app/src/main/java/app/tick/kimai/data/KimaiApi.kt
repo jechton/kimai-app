@@ -131,6 +131,20 @@ class KimaiApi(
         request("PATCH", "timesheets/$id", body)
     }
 
+    /** Sets only the given times, e.g. to end a running entry at the moment the user stopped it. */
+    suspend fun patchTimes(
+        id: Int,
+        begin: String?,
+        end: String?,
+    ) {
+        val body =
+            buildJsonObject {
+                if (begin != null) put("begin", begin)
+                if (end != null) put("end", end)
+            }
+        request("PATCH", "timesheets/$id", body)
+    }
+
     private fun errorMessage(
         code: Int,
         text: String,

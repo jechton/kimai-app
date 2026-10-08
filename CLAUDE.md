@@ -60,6 +60,8 @@ app/src/main/java/app/tick/kimai/
 
 `toggle()` is what the widget button and quick tile call: stop if a timer is running, otherwise restart the last entry. It takes `updateTile: Boolean` to avoid recursion when called *from* `TimerTileService` itself.
 
+**Offline queue.** Mutating calls in `TimerRepository` go through `perform()`: replay any queued changes first, then try the call; on a network failure (not an `ApiException`) the change is stored as a `PendingAction` in `Prefs`, the cached `TimerState` is updated optimistically, and `SyncWorker.flushWhenOnline` schedules a replay when connected. `flushQueue()` (also run at the start of every `sync()`) replays in order under a process-wide mutex and drops changes the server rejects. Timers started offline have no id, so a queued `Stop` ends whatever timer is running when replayed. Queued changes are lost on sign out.
+
 **Auth header logic lives in `KimaiApi`**: bearer token by default, or `X-AUTH-USER`/`X-AUTH-TOKEN` headers when `legacyUser` (from the optional username field) is non-blank.
 
 **`Entry.project`/`Entry.activity` use `RefSerializer`** because Kimai's timesheets endpoint returns project/activity as a bare id in some contexts and a full object (`{id, name}`) in others — the custom `JsonTransformingSerializer` normalizes both to `Ref`.
@@ -72,4 +74,4 @@ app/src/main/java/app/tick/kimai/
 
 ## Known gaps (per README)
 
-Not yet implemented: offline queue, multiple servers. On Android 14+, a non-foreground-service notification can be swiped away; it comes back on the next sync or app open.
+Not yet implemented: multiple servers. On Android 14+, a non-foreground-service notification can be swiped away; it comes back on the next sync or app open.

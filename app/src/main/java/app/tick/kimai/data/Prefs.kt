@@ -38,10 +38,18 @@ class Prefs(context: Context) {
         get() = sp.getLong("profile_at", 0L)
         set(v) = sp.edit { putLong("profile_at", v) }
 
-    fun weekTotals(): WeekTotals? =
-        sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, weekTarget) }
+    fun weekTotals(): WeekTotals? = sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, weekTarget) }
 
     fun saveWeekDone(seconds: Long) = sp.edit { putLong("week_done", seconds) }
+
+    fun pending(): List<PendingAction> = PendingAction.decodeList(sp.getString("pending", "").orEmpty())
+
+    fun savePending(list: List<PendingAction>) =
+        sp.edit {
+            if (list.isEmpty()) remove("pending") else putString("pending", PendingAction.encodeList(list))
+        }
+
+    fun pendingCount(): Int = pending().size
 
     var timeMode: Int
         get() = sp.getInt("time_mode", TimeMode.SYSTEM)
