@@ -52,6 +52,7 @@
               pkgs.jdk17
               androidComposition.androidsdk
               pkgs.prek
+              pkgs.git-cliff
             ] ++ extraPackages;
 
             JAVA_HOME = "${pkgs.jdk17}";

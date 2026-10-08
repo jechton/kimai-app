@@ -35,24 +35,67 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref_type == 'tag' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Manual releases (pushing a vX.Y.Z tag via `tick release`) use that
+      # tag as-is. Automatic releases (every push to main) compute the next
+      # version from Conventional Commits since the last tag and create it
+      # here; if there's nothing release-worthy, skip the rest of the job.
+      - name: Compute next version
+        if: github.ref_type != 'tag'
+        id: bump
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: --bumped-version
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          next="${{ steps.bump.outputs.content }}"
+          if [[ -z "$next" ]] || git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$next" -m "$next"
+          git push origin "$next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        if: steps.release.outputs.skip != 'true'
+        id: notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: --latest --strip header
+
       - uses: actions/setup-java@v4
+        if: steps.release.outputs.skip != 'true'
         with:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.release.outputs.skip != 'true'
 
       - name: Decode keystore
+        if: steps.release.outputs.skip != 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
       - name: Build signed release APK
+        if: steps.release.outputs.skip != 'true'
         env:
-          RELEASE_VERSION: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ steps.release.outputs.tag }}
           RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
@@ -64,6 +107,8 @@ jobs:
         run: rm -f "$RUNNER_TEMP/release.keystore"
 
       - uses: softprops/action-gh-release@v2
+        if: steps.release.outputs.skip != 'true'
         with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          body: ${{ steps.notes.outputs.content }}
           files: app/build/outputs/apk/release/tick-*.apk
-          generate_release_notes: true
