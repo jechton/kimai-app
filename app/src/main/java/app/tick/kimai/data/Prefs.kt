@@ -38,8 +38,7 @@ class Prefs(context: Context) {
         get() = sp.getLong("profile_at", 0L)
         set(v) = sp.edit { putLong("profile_at", v) }
 
-    fun weekTotals(): WeekTotals? =
-        sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, weekTarget) }
+    fun weekTotals(): WeekTotals? = sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, weekTarget) }
 
     fun saveWeekDone(seconds: Long) = sp.edit { putLong("week_done", seconds) }
 

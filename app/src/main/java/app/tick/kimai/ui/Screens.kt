@@ -86,10 +86,10 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
-import app.tick.kimai.data.TimerState
-import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
+import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.util.Fmt
 import app.tick.kimai.util.QrImage
 import app.tick.kimai.util.TimeMode
