@@ -68,7 +68,7 @@ data class Me(
     /** Kimai's per-user "first day of the week" preference, e.g. "monday" or "sunday". */
     val firstWeekday: String?
         get() =
-            preferences.firstOrNull { it.name == "first_weekday" || it.name == "firstDayOfWeek" }
+            preferences.firstOrNull { it.name == "first_weekday" }
                 ?.value?.let { (it as? JsonPrimitive)?.content }
 }
 
