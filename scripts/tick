@@ -4,6 +4,19 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Single source of truth for what each command does, so the Nix dev shell
+# banner can print this instead of keeping its own copy that drifts.
+help() {
+  cat <<'EOF'
+  tick build      ./gradlew assembleDebug
+  tick install    ./gradlew installDebug      (phone or emulator connected over adb)
+  tick avd        create the emulator once
+  tick emulator   launch it
+  tick run        installDebug, then launch the app on the connected device
+  tick release X.Y.Z   tag and push a release (CI builds and publishes it)
+EOF
+}
+
 case "${1:-}" in
   build)
     ./gradlew assembleDebug
@@ -22,6 +35,9 @@ case "${1:-}" in
     ./gradlew installDebug
     adb shell monkey -p app.tick.kimai -c android.intent.category.LAUNCHER 1
     ;;
+  help)
+    help
+    ;;
   release)
     version="${2:-}"
     if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -38,7 +54,7 @@ case "${1:-}" in
     echo "pushed $tag, CI will build and publish the signed release"
     ;;
   *)
-    echo "usage: tick {build|install|avd|emulator|run|release}" >&2
+    echo "usage: tick {build|install|avd|emulator|run|release|help}" >&2
     exit 1
     ;;
 esac
