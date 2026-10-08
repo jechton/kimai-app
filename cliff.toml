@@ -11,6 +11,11 @@ body = """
 trim = true
 footer = ""
 
+[bump]
+# git-cliff's own baseline when no tags exist is bare "0.1.0", which doesn't
+# match tag_pattern below (tags are "vX.Y.Z").
+initial_tag = "v0.1.0"
+
 [git]
 conventional_commits = true
 filter_unconventional = true
