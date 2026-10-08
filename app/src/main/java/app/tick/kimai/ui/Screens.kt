@@ -632,6 +632,8 @@ private fun WeekSummary(
             LinearProgressIndicator(
                 progress = { (total.toFloat() / week.targetSeconds).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                // M3 1.3 draws a "stop indicator" dot at the track's end by default; we don't want it.
+                drawStopIndicator = {},
             )
         }
     }

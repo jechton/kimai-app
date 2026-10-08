@@ -50,6 +50,17 @@ class Prefs(context: Context) {
 
     fun saveWeekDone(seconds: Long) = sp.edit { putLong("week_done", seconds) }
 
+    /** Finished entries cached for the large widget's recent-entries list. */
+    fun recentEntries(): List<RecentEntry> = RecentEntry.decodeList(sp.getString("recent_entries", "").orEmpty())
+
+    fun saveRecentEntries(list: List<RecentEntry>) =
+        sp.edit {
+            putString(
+                "recent_entries",
+                RecentEntry.encodeList(list),
+            )
+        }
+
     fun pending(): List<PendingAction> = PendingAction.decodeList(sp.getString("pending", "").orEmpty())
 
     fun savePending(list: List<PendingAction>) =

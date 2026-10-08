@@ -2,6 +2,7 @@ package app.tick.kimai.data
 
 import app.tick.kimai.util.Fmt
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -117,6 +118,23 @@ data class TimerState(
     val lastId: Int = 0,
     val lastLabel: String = "",
 )
+
+/** A finished entry as cached for the large widget's recent-entries list. */
+@Serializable
+data class RecentEntry(val label: String, val seconds: Long, val beginMillis: Long, val endMillis: Long) {
+    companion object {
+        private val json = Json { ignoreUnknownKeys = true }
+
+        // lazy, same reason as PendingAction's listSerializer: serializer() needs the companion's
+        // own generated $cachedSerializer field, which isn't set yet during <clinit>.
+        private val listSerializer by lazy { ListSerializer(serializer()) }
+
+        fun decodeList(raw: String): List<RecentEntry> =
+            runCatching { json.decodeFromString(listSerializer, raw) }.getOrDefault(emptyList())
+
+        fun encodeList(list: List<RecentEntry>): String = json.encodeToString(listSerializer, list)
+    }
+}
 
 /** Seconds tracked in finished entries this week, and the contracted target (0 = none). */
 data class WeekTotals(val doneSeconds: Long, val targetSeconds: Long) {

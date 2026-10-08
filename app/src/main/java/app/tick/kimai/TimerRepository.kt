@@ -9,6 +9,7 @@ import app.tick.kimai.data.KimaiApi
 import app.tick.kimai.data.Me
 import app.tick.kimai.data.PendingAction
 import app.tick.kimai.data.Prefs
+import app.tick.kimai.data.RecentEntry
 import app.tick.kimai.data.TimerState
 import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.notify.TimerNotifier
@@ -112,6 +113,11 @@ class TimerRepository(context: Context) {
                     lastLabel = last?.label ?: old.lastLabel,
                 )
             prefs.saveTimerState(state)
+            prefs.saveRecentEntries(
+                recent.filter { !it.isRunning }.take(RECENT_ENTRIES_LIMIT).map {
+                    RecentEntry(it.label, it.seconds, it.beginMillis, it.endMillis ?: it.beginMillis)
+                },
+            )
             val view = if (withWeek) runCatching { loadWeek(0) }.getOrNull() else null
             refreshSurfaces(state, updateTile)
             result(state, view?.entries ?: recent, view?.totals ?: prefs.weekTotals(), running, view?.start)
@@ -344,6 +350,7 @@ class TimerRepository(context: Context) {
 
     private companion object {
         const val PROFILE_TTL_MS = 6 * 60 * 60 * 1000L
+        const val RECENT_ENTRIES_LIMIT = 8
 
         /** One replay at a time across the app, widget, tile and worker. */
         val queueLock = Mutex()
