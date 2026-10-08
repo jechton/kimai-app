@@ -22,6 +22,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
@@ -41,6 +42,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -239,6 +241,7 @@ private fun HomeScreen(
     var showTimeDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Entry?>(null) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
+    var adding by remember { mutableStateOf(false) }
 
     val notifPermission =
         rememberLauncherForActivityResult(
@@ -297,6 +300,11 @@ private fun HomeScreen(
                 },
             )
         },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { adding = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Add entry")
+            }
+        },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -343,6 +351,18 @@ private fun HomeScreen(
             onSave = { description, beginMillis, endMillis ->
                 vm.updateEntry(entry, description, beginMillis, endMillis)
                 editing = null
+            },
+        )
+    }
+
+    if (adding) {
+        AddEntryDialog(
+            vm = vm,
+            ui = ui,
+            onDismiss = { adding = false },
+            onSave = { projectId, activityId, description, beginMillis, endMillis ->
+                vm.addEntry(projectId, activityId, description, beginMillis, endMillis)
+                adding = false
             },
         )
     }
@@ -627,56 +647,71 @@ private fun EditEntryDialog(
     )
 
     picking?.let { (isStart, isDate) ->
-        val current = if (isStart) begin else end
+        DateOrTimePicker(
+            current = if (isStart) begin else end,
+            isDate = isDate,
+            mode = mode,
+            onDismiss = { picking = null },
+            onPick = { v ->
+                if (isStart) begin = v else end = v
+                picking = null
+            },
+        )
+    }
+}
 
-        fun assign(v: LocalDateTime) {
-            if (isStart) begin = v else end = v
-        }
-
-        if (isDate) {
-            val state =
-                rememberDatePickerState(
-                    // The date picker works in UTC midnight millis
-                    initialSelectedDateMillis =
-                        current.toLocalDate()
-                            .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-                )
-            DatePickerDialog(
-                onDismissRequest = { picking = null },
-                confirmButton = {
-                    TextButton(onClick = {
-                        state.selectedDateMillis?.let { ms ->
-                            val d = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
-                            assign(current.with(d))
-                        }
-                        picking = null
-                    }) { Text("OK") }
-                },
-                dismissButton = { TextButton(onClick = { picking = null }) { Text("Cancel") } },
-            ) {
-                DatePicker(state = state)
-            }
-        } else {
-            val state =
-                rememberTimePickerState(
-                    initialHour = current.hour,
-                    initialMinute = current.minute,
-                    is24Hour = Fmt.is24(context, mode),
-                )
-            AlertDialog(
-                onDismissRequest = { picking = null },
-                properties = DialogProperties(usePlatformDefaultWidth = false),
-                modifier = Modifier.padding(16.dp),
-                text = { TimePicker(state = state) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        assign(current.withHour(state.hour).withMinute(state.minute))
-                        picking = null
-                    }) { Text("OK") }
-                },
-                dismissButton = { TextButton(onClick = { picking = null }) { Text("Cancel") } },
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateOrTimePicker(
+    current: LocalDateTime,
+    isDate: Boolean,
+    mode: Int,
+    onDismiss: () -> Unit,
+    onPick: (LocalDateTime) -> Unit,
+) {
+    val context = LocalContext.current
+    if (isDate) {
+        val state =
+            rememberDatePickerState(
+                // The date picker works in UTC midnight millis
+                initialSelectedDateMillis =
+                    current.toLocalDate()
+                        .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
             )
+        DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(onClick = {
+                    val ms = state.selectedDateMillis
+                    if (ms != null) {
+                        val d = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
+                        onPick(current.with(d))
+                    } else {
+                        onDismiss()
+                    }
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        ) {
+            DatePicker(state = state)
         }
+    } else {
+        val state =
+            rememberTimePickerState(
+                initialHour = current.hour,
+                initialMinute = current.minute,
+                is24Hour = Fmt.is24(context, mode),
+            )
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier.padding(16.dp),
+            text = { TimePicker(state = state) },
+            confirmButton = {
+                TextButton(onClick = { onPick(current.withHour(state.hour).withMinute(state.minute)) }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        )
     }
 }
 
@@ -710,6 +745,101 @@ private fun DateTimeRow(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 8.dp),
         ) { Text(timeText, maxLines = 1) }
+    }
+}
+
+// Add entry (logging past time without starting/stopping a timer)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddEntryDialog(
+    vm: MainViewModel,
+    ui: UiState,
+    onDismiss: () -> Unit,
+    onSave: (projectId: Int, activityId: Int, description: String, beginMillis: Long, endMillis: Long) -> Unit,
+) {
+    val zone = remember { ZoneId.systemDefault() }
+    var description by remember { mutableStateOf("") }
+    var begin by remember { mutableStateOf(LocalDateTime.now(zone).minusHours(1)) }
+    var end by remember { mutableStateOf(LocalDateTime.now(zone)) }
+    var picking by remember { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
+    val timeValid = end.isAfter(begin)
+    val valid = ui.selectedProject != null && ui.selectedActivity != null && timeValid
+
+    fun millis(dt: LocalDateTime): Long = dt.atZone(zone).toInstant().toEpochMilli()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add entry") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Picker(
+                    label = "Project",
+                    items = ui.projects,
+                    selected = ui.selectedProject,
+                    text = { it.display },
+                    onSelect = { vm.selectProject(it) },
+                )
+                Picker(
+                    label = "Activity",
+                    items = ui.activities,
+                    selected = ui.selectedActivity,
+                    text = { it.name },
+                    onSelect = { vm.selectActivity(it) },
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                DateTimeRow(
+                    label = "Start",
+                    value = begin,
+                    zone = zone,
+                    mode = ui.timeMode,
+                    onDate = { picking = true to true },
+                    onTime = { picking = true to false },
+                )
+                DateTimeRow(
+                    label = "End",
+                    value = end,
+                    zone = zone,
+                    mode = ui.timeMode,
+                    onDate = { picking = false to true },
+                    onTime = { picking = false to false },
+                )
+                if (!timeValid) {
+                    Text(
+                        "End must be after start",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = valid,
+                onClick = {
+                    onSave(ui.selectedProject!!.id, ui.selectedActivity!!.id, description, millis(begin), millis(end))
+                },
+            ) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+
+    picking?.let { (isStart, isDate) ->
+        DateOrTimePicker(
+            current = if (isStart) begin else end,
+            isDate = isDate,
+            mode = ui.timeMode,
+            onDismiss = { picking = null },
+            onPick = { v ->
+                if (isStart) begin = v else end = v
+                picking = null
+            },
+        )
     }
 }
 

@@ -170,6 +170,16 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             apply(repo.delete(entry.id).getOrThrow())
         }
 
+    fun addEntry(
+        projectId: Int,
+        activityId: Int,
+        description: String,
+        beginMillis: Long,
+        endMillis: Long,
+    ) = launchBusy {
+        apply(repo.createEntry(projectId, activityId, description.trim(), beginMillis, endMillis).getOrThrow())
+    }
+
     fun updateEntry(
         entry: Entry,
         description: String,
