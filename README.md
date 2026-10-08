@@ -12,6 +12,7 @@ Android client for [Kimai](https://www.kimai.org). Kotlin, Jetpack Compose, Mate
 - Ongoing notification with a live chronometer and a Stop button
 - Recent entries grouped by day: start again, edit (description, start and end date and time), delete
 - Edit a running entry's description and start time without stopping it
+- Add a past entry directly (project, activity, description, start and end) without starting/stopping a timer
 - Home screen widget (Stop / Start last) and a Quick Settings tile
 - Times follow your system 12/24h setting. Override in the top-right menu, Time format.
 - Picks up timers started elsewhere (web UI) every 15 minutes in the background, and on app open

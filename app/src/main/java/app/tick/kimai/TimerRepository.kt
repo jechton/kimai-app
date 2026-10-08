@@ -71,6 +71,26 @@ class TimerRepository(context: Context) {
             sync().getOrThrow()
         }
 
+    /** Creates a finished entry directly, e.g. for time logged after the fact. */
+    suspend fun createEntry(
+        projectId: Int,
+        activityId: Int,
+        description: String,
+        beginMillis: Long,
+        endMillis: Long,
+    ): Result<SyncResult> =
+        runCatching {
+            val zone = userZone()
+            api().start(
+                projectId,
+                activityId,
+                description,
+                Fmt.apiLocal(beginMillis, zone),
+                Fmt.apiLocal(endMillis, zone),
+            )
+            sync().getOrThrow()
+        }
+
     suspend fun stop(): Result<SyncResult> =
         runCatching {
             val current = sync().getOrThrow()

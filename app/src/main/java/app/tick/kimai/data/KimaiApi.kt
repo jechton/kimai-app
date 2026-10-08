@@ -72,17 +72,20 @@ class KimaiApi(
         return json.decodeFromString(ListSerializer(Activity.serializer()), text)
     }
 
+    /** end is omitted to start a running entry, or set to create a finished one in the past. */
     suspend fun start(
         projectId: Int,
         activityId: Int,
         description: String,
         begin: String,
+        end: String? = null,
     ) {
         val body =
             buildJsonObject {
                 put("project", projectId)
                 put("activity", activityId)
                 put("begin", begin)
+                if (end != null) put("end", end)
                 if (description.isNotBlank()) put("description", description)
             }
         request("POST", "timesheets", body)
