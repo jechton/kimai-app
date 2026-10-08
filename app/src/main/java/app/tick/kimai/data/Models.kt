@@ -63,7 +63,17 @@ data class Me(
     val username: String = "",
     val alias: String? = null,
     val timezone: String? = null,
-)
+    val preferences: List<Pref> = emptyList(),
+) {
+    /** Kimai's per-user "first day of the week" preference, e.g. "monday" or "sunday". */
+    val firstWeekday: String?
+        get() =
+            preferences.firstOrNull { it.name == "first_weekday" || it.name == "firstDayOfWeek" }
+                ?.value?.let { (it as? JsonPrimitive)?.content }
+}
+
+@Serializable
+data class Pref(val name: String, val value: JsonElement? = null)
 
 /** Payload of Kimai's "Create API access" QR code, e.g. {"type":"kimai","version":1,"url":"...","token":"..."}. */
 @Serializable

@@ -29,6 +29,7 @@ data class UiState(
     val selectedProject: Project? = null,
     val selectedActivity: Activity? = null,
     val description: String = "",
+    val weekSeconds: Long? = null,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -64,6 +65,9 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private fun apply(r: SyncResult) {
         _ui.update { it.copy(timer = r.state, entries = r.entries) }
+        viewModelScope.launch {
+            repo.weekSeconds().onSuccess { s -> _ui.update { it.copy(weekSeconds = s) } }
+        }
     }
 
     fun clearError() = _ui.update { it.copy(error = null) }
@@ -83,6 +87,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         prefs.token = cleanToken
         prefs.username = legacyUser
         prefs.userTimezone = me.timezone.orEmpty()
+        prefs.firstWeekday = me.firstWeekday.orEmpty()
         _ui.update { it.copy(loggedIn = true) }
         apply(repo.sync().getOrThrow())
         loadProjects()

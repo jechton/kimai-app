@@ -62,6 +62,15 @@ class KimaiApi(
         return json.decodeFromString(ListSerializer(Entry.serializer()), text)
     }
 
+    /** Entries beginning in [begin, end], both local times in the user's Kimai timezone. */
+    suspend fun between(
+        begin: String,
+        end: String,
+    ): List<Entry> {
+        val text = request("GET", "timesheets?full=true&begin=$begin&end=$end&size=1000")
+        return json.decodeFromString(ListSerializer(Entry.serializer()), text)
+    }
+
     suspend fun projects(): List<Project> {
         val text = request("GET", "projects?size=500&order=ASC&orderBy=name")
         return json.decodeFromString(ListSerializer(Project.serializer()), text)

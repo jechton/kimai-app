@@ -24,6 +24,10 @@ class Prefs(context: Context) {
         get() = sp.getString("tz", "").orEmpty()
         set(v) = sp.edit { putString("tz", v) }
 
+    var firstWeekday: String
+        get() = sp.getString("first_weekday", "").orEmpty()
+        set(v) = sp.edit { putString("first_weekday", v) }
+
     var timeMode: Int
         get() = sp.getInt("time_mode", TimeMode.SYSTEM)
         set(v) = sp.edit { putInt("time_mode", v) }

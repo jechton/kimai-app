@@ -320,6 +320,16 @@ private fun HomeScreen(
             ) {
                 item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
 
+                ui.weekSeconds?.let { secs ->
+                    item(key = "week") {
+                        Text(
+                            "This week: ${Fmt.hoursMinutes(secs)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+                        )
+                    }
+                }
+
                 byDay.forEach { (day, list) ->
                     item(key = "day-$day") {
                         Text(

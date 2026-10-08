@@ -12,7 +12,10 @@ import app.tick.kimai.notify.TimerNotifier
 import app.tick.kimai.tile.TimerTileService
 import app.tick.kimai.util.Fmt
 import app.tick.kimai.widget.TickWidget
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 
 class NotSignedIn : IllegalStateException("Not signed in")
 
@@ -35,6 +38,23 @@ class TimerRepository(context: Context) {
         prefs.userTimezone.takeIf { it.isNotBlank() }
             ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
             ?: ZoneId.systemDefault()
+
+    /** Seconds tracked this week, where the week starts on the Kimai user's first day of the week. */
+    suspend fun weekSeconds(): Result<Long> =
+        runCatching {
+            val zone = userZone()
+            if (prefs.firstWeekday.isBlank()) prefs.firstWeekday = api().me().firstWeekday ?: "monday"
+            val first =
+                runCatching { DayOfWeek.valueOf(prefs.firstWeekday.uppercase()) }
+                    .getOrDefault(DayOfWeek.MONDAY)
+            val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(first))
+            val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
+            val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
+            val now = System.currentTimeMillis()
+            api().between(begin, end).sumOf {
+                if (it.isRunning) ((now - it.beginMillis) / 1000).coerceAtLeast(0) else it.seconds
+            }
+        }
 
     suspend fun sync(
         size: Int = 40,
