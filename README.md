@@ -29,7 +29,6 @@ Plain `http://` servers are blocked by Android's default cleartext policy. Use h
 ## Notes
 
 - On Android 14+, a non-foreground-service notification can be swiped away. It comes back on the next sync or app open.
-- Not yet: multiple servers.
 
 ## Build on NixOS
 

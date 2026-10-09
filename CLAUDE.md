@@ -74,4 +74,4 @@ app/src/main/java/app/tick/kimai/
 
 ## Known gaps (per README)
 
-Not yet implemented: multiple servers. On Android 14+, a non-foreground-service notification can be swiped away; it comes back on the next sync or app open.
+On Android 14+, a non-foreground-service notification can be swiped away; it comes back on the next sync or app open.
