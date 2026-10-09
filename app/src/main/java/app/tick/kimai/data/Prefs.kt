@@ -40,6 +40,16 @@ class Prefs(context: Context) {
 
     val effectiveWeekTarget: Long get() = weekTargetOverride.takeIf { it > 0 } ?: weekTarget
 
+    /** Hourly pay rate typed into the app, overriding Kimai's per-entry rate when > 0. */
+    var payRateOverride: Float
+        get() = sp.getFloat("pay_rate_override", 0f)
+        set(v) = sp.edit { putFloat("pay_rate_override", v) }
+
+    /** Percent of gross pay withheld as tax, 0-100. */
+    var payTaxPercent: Float
+        get() = sp.getFloat("pay_tax_percent", 0f)
+        set(v) = sp.edit { putFloat("pay_tax_percent", v) }
+
     /** When the user profile (week start, contract) was last read from Kimai. */
     var profileFetchedAt: Long
         get() = sp.getLong("profile_at", 0L)

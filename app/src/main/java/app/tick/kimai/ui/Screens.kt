@@ -105,6 +105,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -255,6 +256,7 @@ private fun HomeScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var showTimeDialog by remember { mutableStateOf(false) }
     var showTargetDialog by remember { mutableStateOf(false) }
+    var showPayDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Entry?>(null) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
     var adding by remember { mutableStateOf(false) }
@@ -358,6 +360,13 @@ private fun HomeScreen(
                                 },
                             )
                             DropdownMenuItem(
+                                text = { Text("Pay rate & tax") },
+                                onClick = {
+                                    menuOpen = false
+                                    showPayDialog = true
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Sign out") },
                                 onClick = {
                                     menuOpen = false
@@ -405,9 +414,12 @@ private fun HomeScreen(
                     item(key = "week") {
                         WeekSummary(
                             week = week,
+                            entries = ui.entries,
                             timer = ui.timer.takeIf { ui.weekOffset == 0 },
                             offset = ui.weekOffset,
                             start = ui.weekStart,
+                            payRateOverride = ui.payRateOverride,
+                            payTaxPercent = ui.payTaxPercent,
                             onShow = { vm.showWeek(it) },
                         )
                     }
@@ -502,6 +514,19 @@ private fun HomeScreen(
         )
     }
 
+    if (showPayDialog) {
+        PayDialog(
+            currentRate = ui.payRateOverride,
+            currentTaxPercent = ui.payTaxPercent,
+            onDismiss = { showPayDialog = false },
+            onSave = { rate, tax ->
+                vm.setPayRate(rate)
+                vm.setPayTax(tax)
+                showPayDialog = false
+            },
+        )
+    }
+
     if (showTimeDialog) {
         AlertDialog(
             onDismissRequest = { showTimeDialog = false },
@@ -578,11 +603,61 @@ private fun WeekTargetDialog(
 }
 
 @Composable
+private fun PayDialog(
+    currentRate: Float,
+    currentTaxPercent: Float,
+    onDismiss: () -> Unit,
+    onSave: (rate: Double?, taxPercent: Double?) -> Unit,
+) {
+    var rateText by remember { mutableStateOf(if (currentRate > 0) currentRate.toString() else "") }
+    var taxText by remember { mutableStateOf(if (currentTaxPercent > 0) currentTaxPercent.toString() else "") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pay rate & tax") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = rateText,
+                    onValueChange = { rateText = it },
+                    label = { Text("Hourly rate") },
+                    supportingText = { Text("Leave empty to use Kimai's own rate for each entry") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = taxText,
+                    onValueChange = { taxText = it },
+                    label = { Text("Tax withheld (%)") },
+                    supportingText = { Text("Leave empty for none") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(
+                    rateText.replace(',', '.').trim().toDoubleOrNull(),
+                    taxText.replace(',', '.').trim().toDoubleOrNull(),
+                )
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
 private fun WeekSummary(
     week: WeekTotals,
+    entries: List<Entry>,
     timer: TimerState?,
     offset: Int,
     start: LocalDate?,
+    payRateOverride: Float,
+    payTaxPercent: Float,
     onShow: (Int) -> Unit,
 ) {
     val total = if (timer != null) week.total(timer) else week.doneSeconds
@@ -642,6 +717,29 @@ private fun WeekSummary(
                     },
                 // M3 1.3 draws a "stop indicator" dot at the track's end by default; we don't want it.
                 drawStopIndicator = {},
+            )
+        }
+        val grossPay =
+            if (payRateOverride > 0) {
+                payRateOverride * (total / 3600.0)
+            } else {
+                // Kimai's own per-entry rate; a currently running entry has none yet.
+                entries.filter { !it.isRunning }.sumOf { it.rate ?: 0.0 }.takeIf { it > 0 }
+            }
+        if (grossPay != null && grossPay > 0) {
+            val netPay = grossPay * (1 - payTaxPercent / 100.0)
+            val currency = remember { NumberFormat.getCurrencyInstance() }
+            val payText =
+                if (payTaxPercent > 0) {
+                    "Est. pay: ${currency.format(netPay)} (${currency.format(grossPay)} before tax)"
+                } else {
+                    "Est. pay: ${currency.format(grossPay)}"
+                }
+            Text(
+                payText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             )
         }
     }

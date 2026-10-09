@@ -25,6 +25,8 @@ data class Entry(
     val end: String? = null,
     val duration: Long? = null,
     val description: String? = null,
+    /** Kimai's computed pay for this entry (hourly rate x duration), null if rates aren't configured or visible to this user. */
+    val rate: Double? = null,
     @Serializable(with = RefSerializer::class) val project: Ref,
     @Serializable(with = RefSerializer::class) val activity: Ref,
 ) {

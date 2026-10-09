@@ -34,6 +34,8 @@ data class UiState(
     val week: WeekTotals? = null,
     val pending: Int = 0,
     val weekTargetOverride: Long = 0L,
+    val payRateOverride: Float = 0f,
+    val payTaxPercent: Float = 0f,
     /** 0 is this week, -1 last week, and so on. The list and totals show this week. */
     val weekOffset: Int = 0,
     val weekStart: LocalDate? = null,
@@ -55,6 +57,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 week = prefs.weekTotals(),
                 pending = prefs.pendingCount(),
                 weekTargetOverride = prefs.weekTargetOverride,
+                payRateOverride = prefs.payRateOverride,
+                payTaxPercent = prefs.payTaxPercent,
                 firstWeekday = prefs.firstWeekday,
             ),
         )
@@ -256,5 +260,17 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         prefs.timeMode = mode
         _ui.update { it.copy(timeMode = mode) }
         viewModelScope.launch { repo.refreshSurfaces(prefs.timerState()) }
+    }
+
+    /** Hourly rate typed in the app, or null to use Kimai's per-entry rate instead. */
+    fun setPayRate(hourlyRate: Double?) {
+        prefs.payRateOverride = hourlyRate?.takeIf { it > 0 }?.toFloat() ?: 0f
+        _ui.update { it.copy(payRateOverride = prefs.payRateOverride) }
+    }
+
+    /** Percent of gross pay withheld as tax, or null for none. */
+    fun setPayTax(percent: Double?) {
+        prefs.payTaxPercent = percent?.takeIf { it > 0 }?.toFloat() ?: 0f
+        _ui.update { it.copy(payTaxPercent = prefs.payTaxPercent) }
     }
 }
