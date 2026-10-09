@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-feature
@@ -31,6 +33,15 @@
         <receiver
             android:name=".notify.TimerActionReceiver"
             android:exported="false" />
+
+        <service
+            android:name=".notify.TimerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the running-timer notification from being dismissed" />
+        </service>
 
         <activity
             android:name=".widget.TickWidgetConfigActivity"
