@@ -729,12 +729,7 @@ private fun WeekSummary(
         if (grossPay != null && grossPay > 0) {
             val netPay = grossPay * (1 - payTaxPercent / 100.0)
             val currency = remember { NumberFormat.getCurrencyInstance() }
-            val payText =
-                if (payTaxPercent > 0) {
-                    "Est. pay: ${currency.format(netPay)} (${currency.format(grossPay)} before tax)"
-                } else {
-                    "Est. pay: ${currency.format(grossPay)}"
-                }
+            val payText = "Est. pay: ${currency.format(netPay)}"
             Text(
                 payText,
                 style = MaterialTheme.typography.bodyMedium,
