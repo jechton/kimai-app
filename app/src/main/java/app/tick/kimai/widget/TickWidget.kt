@@ -1,14 +1,25 @@
 package app.tick.kimai.widget
 
 import android.content.Context
+import android.content.res.Configuration
+import android.os.Build
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.Button
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
@@ -24,6 +35,7 @@ import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
@@ -32,9 +44,11 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.material3.ColorProviders
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider
 import app.tick.kimai.MainActivity
 import app.tick.kimai.TimerRepository
 import app.tick.kimai.data.Prefs
@@ -49,6 +63,17 @@ private val XLARGE = DpSize(250.dp, 300.dp)
 
 class TickWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE, XLARGE))
+
+    companion object {
+        /** 1f is fully opaque (the old default), 0f is fully transparent. */
+        val OPACITY_KEY = floatPreferencesKey("opacity")
+        val SHOW_WEEK_KEY = booleanPreferencesKey("show_week")
+        val SHOW_RECENT_KEY = booleanPreferencesKey("show_recent")
+        val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+        const val THEME_MODE_AUTO = "auto"
+        const val THEME_MODE_LIGHT = "light"
+        const val THEME_MODE_DARK = "dark"
+    }
 
     override suspend fun provideGlance(
         context: Context,
@@ -67,9 +92,42 @@ class TickWidget : GlanceAppWidget() {
             weekTotals?.takeIf { it.targetSeconds > 0 }?.let { it.total(state).toFloat() / it.targetSeconds }
         val rows = dayRows(prefs.recentEntries(), context, prefs.timeMode)
         provideContent {
-            GlanceTheme {
-                WidgetContent(state, since, week, weekFraction, rows)
+            val opacity = currentState(OPACITY_KEY) ?: 1f
+            val showWeek = currentState(SHOW_WEEK_KEY) ?: true
+            val showRecent = currentState(SHOW_RECENT_KEY) ?: true
+            val themeMode = currentState(THEME_MODE_KEY) ?: THEME_MODE_AUTO
+            GlanceTheme(colors = ColorProviders(colorScheme(context, themeMode))) {
+                WidgetContent(
+                    state,
+                    since,
+                    week.takeIf { showWeek },
+                    weekFraction.takeIf { showWeek },
+                    rows.takeIf { showRecent } ?: emptyList(),
+                    opacity,
+                )
             }
+        }
+    }
+
+    /** Matches TickTheme's own light/dark + dynamic-color logic, but with the dark/light choice forced when requested. */
+    private fun colorScheme(
+        context: Context,
+        themeMode: String,
+    ): ColorScheme {
+        val systemDark =
+            (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+        val dark =
+            when (themeMode) {
+                THEME_MODE_LIGHT -> false
+                THEME_MODE_DARK -> true
+                else -> systemDark
+            }
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            dark -> darkColorScheme()
+            else -> lightColorScheme()
         }
     }
 }
@@ -81,8 +139,11 @@ private fun WidgetContent(
     week: String?,
     weekFraction: Float?,
     rows: List<DayRow>,
+    opacity: Float,
 ) {
     val size = LocalSize.current
+    val context = LocalContext.current
+    val background = ColorProvider(GlanceTheme.colors.widgetBackground.getColor(context).copy(alpha = opacity))
     val title =
         when {
             s.running -> s.project.ifBlank { "Timer running" }
@@ -99,7 +160,7 @@ private fun WidgetContent(
         modifier =
             GlanceModifier
                 .fillMaxSize()
-                .background(GlanceTheme.colors.widgetBackground)
+                .background(background)
                 .cornerRadius(24.dp)
                 .padding(if (size.height <= SMALL.height) 8.dp else 16.dp)
                 .clickable(actionStartActivity<MainActivity>()),

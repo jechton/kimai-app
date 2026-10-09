@@ -8,4 +8,5 @@
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
+    android:configure="app.tick.kimai.widget.TickWidgetConfigActivity"
     android:widgetCategory="home_screen" />

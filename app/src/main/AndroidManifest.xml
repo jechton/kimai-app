@@ -32,6 +32,15 @@
             android:name=".notify.TimerActionReceiver"
             android:exported="false" />
 
+        <activity
+            android:name=".widget.TickWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Tick">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.TickWidgetReceiver"
             android:exported="true"
