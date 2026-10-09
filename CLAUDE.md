@@ -74,4 +74,4 @@ app/src/main/java/app/tick/kimai/
 
 ## Known gaps (per README)
 
-The ongoing notification is hosted by `TimerService` (foreground service) so it can't be swiped away. If the system refuses to start the service from the background (e.g. the 15-minute worker finds a timer started elsewhere), it falls back to a plain notification that can be swiped away on Android 14+; it is promoted again on the next sync or app open.
+The ongoing notification is hosted by `TimerService` (foreground service) so it can't be swiped away. If the system refuses to start the service from the background (e.g. the 15-minute worker finds a timer started elsewhere), it falls back to a plain notification with a delete intent that re-posts it if swiped away; it is promoted again on the next sync or app open.

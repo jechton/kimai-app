@@ -28,7 +28,7 @@ Plain `http://` servers are blocked by Android's default cleartext policy. Use h
 
 ## Notes
 
-- The ongoing notification runs in a foreground service so it can't be swiped away. If Android refuses to start the service from the background, it falls back to a plain notification that can be swiped away on Android 14+. It is promoted again on the next sync or app open.
+- The ongoing notification runs in a foreground service so it can't be swiped away. If Android refuses to start the service from the background, it falls back to a plain notification. If that is swiped away it is re-posted immediately, and promoted to the service on the next sync or app open.
 
 ## Build on NixOS
 

@@ -14,6 +14,7 @@ import app.tick.kimai.data.TimerState
 
 object TimerNotifier {
     const val ACTION_STOP = "app.tick.kimai.action.STOP"
+    const val ACTION_DISMISSED = "app.tick.kimai.action.DISMISSED"
     private const val CHANNEL = "timer"
     internal const val ID = 1
 
@@ -71,6 +72,14 @@ object TimerNotifier {
                 flags,
             )
 
+        val dismissed =
+            PendingIntent.getBroadcast(
+                context,
+                2,
+                Intent(context, TimerActionReceiver::class.java).setAction(ACTION_DISMISSED),
+                flags,
+            )
+
         val detail = listOf(s.activity, s.description).filter { it.isNotBlank() }.joinToString(" · ")
 
         return NotificationCompat.Builder(context, CHANNEL)
@@ -83,6 +92,7 @@ object TimerNotifier {
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(open)
+                .setDeleteIntent(dismissed)
                 .addAction(0, "Stop", stop)
                 .build()
     }
