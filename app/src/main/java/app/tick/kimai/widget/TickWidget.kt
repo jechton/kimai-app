@@ -155,7 +155,8 @@ private fun WidgetContent(
                     when {
                         weekFraction >= 1f -> GlanceTheme.colors.error
                         weekFraction >= 0.9f -> GlanceTheme.colors.tertiary
-                        else -> GlanceTheme.colors.primary
+                        weekFraction >= 0.5f -> GlanceTheme.colors.primary
+                        else -> GlanceTheme.colors.secondary
                     },
                 backgroundColor = GlanceTheme.colors.surfaceVariant,
             )

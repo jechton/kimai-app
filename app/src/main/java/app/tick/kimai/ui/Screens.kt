@@ -59,7 +59,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -638,7 +637,8 @@ private fun WeekSummary(
                     when {
                         fraction >= 1f -> MaterialTheme.colorScheme.error
                         fraction >= 0.9f -> MaterialTheme.colorScheme.tertiary
-                        else -> ProgressIndicatorDefaults.linearColor
+                        fraction >= 0.5f -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.secondary
                     },
                 // M3 1.3 draws a "stop indicator" dot at the track's end by default; we don't want it.
                 drawStopIndicator = {},
