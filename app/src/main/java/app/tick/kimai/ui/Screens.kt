@@ -113,7 +113,6 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -1045,9 +1044,10 @@ private fun DateTimeRow(
     onTime: () -> Unit,
 ) {
     val context = LocalContext.current
-    val dateText =
-        value.toLocalDate()
-            .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+    val date = value.toLocalDate()
+    // Short year form so it fits the button; omitted for the current year.
+    val datePattern = if (date.year == LocalDate.now(zone).year) "MMM d" else "MMM d ''yy"
+    val dateText = date.format(DateTimeFormatter.ofPattern(datePattern, Locale.getDefault()))
     val timeText = Fmt.clock(context, value.atZone(zone).toInstant().toEpochMilli(), mode)
 
     Row(
@@ -1059,7 +1059,7 @@ private fun DateTimeRow(
             onClick = onDate,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 8.dp),
-        ) { Text(dateText, maxLines = 1) }
+        ) { Text(dateText, maxLines = 1, softWrap = false) }
         OutlinedButton(
             onClick = onTime,
             modifier = Modifier.weight(1f),
