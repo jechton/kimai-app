@@ -1044,13 +1044,9 @@ private fun DateTimeRow(
     onTime: () -> Unit,
 ) {
     val context = LocalContext.current
-    val date = value.toLocalDate()
     val dateText =
-        if (date.year == LocalDate.now(zone).year) {
-            date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
-        } else {
-            date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()))
-        }
+        value.toLocalDate()
+            .format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
     val timeText = Fmt.clock(context, value.atZone(zone).toInstant().toEpochMilli(), mode)
 
     Row(
