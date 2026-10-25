@@ -113,7 +113,6 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -1045,9 +1044,13 @@ private fun DateTimeRow(
     onTime: () -> Unit,
 ) {
     val context = LocalContext.current
+    val date = value.toLocalDate()
     val dateText =
-        value.toLocalDate()
-            .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+        if (date.year == LocalDate.now(zone).year) {
+            date.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+        } else {
+            date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()))
+        }
     val timeText = Fmt.clock(context, value.atZone(zone).toInstant().toEpochMilli(), mode)
 
     Row(
