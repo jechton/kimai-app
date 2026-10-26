@@ -285,7 +285,7 @@ class TimerRepository(context: Context) {
         activity: String? = null,
         updateTile: Boolean = true,
     ): Result<SyncResult> {
-        if (entryId == 0) return Result.failure(IllegalStateException("Nothing to restart yet"))
+        if (entryId == 0) return Result.failure(IllegalStateException(app.getString(R.string.error_nothing_to_restart)))
         return perform(
             PendingAction.Restart(entryId, nowLocal()),
             updateTile,

@@ -21,7 +21,8 @@ class KimaiApi(
     private val token: String,
     private val legacyUser: String = "",
 ) {
-    class ApiException(val code: Int, message: String) : IOException(message)
+    /** [serverMessage] is Kimai's own error text, if it sent one. */
+    class ApiException(val code: Int, val serverMessage: String?) : IOException(serverMessage ?: "HTTP $code")
 
     private val base = baseUrl.trimEnd('/') + "/api/"
 
@@ -49,7 +50,7 @@ class KimaiApi(
             }
             client.newCall(builder.build()).execute().use { resp ->
                 val text = resp.body?.string().orEmpty()
-                if (!resp.isSuccessful) throw ApiException(resp.code, errorMessage(resp.code, text))
+                if (!resp.isSuccessful) throw ApiException(resp.code, serverMessage(resp.code, text))
                 text
             }
         }
@@ -145,16 +146,16 @@ class KimaiApi(
         request("PATCH", "timesheets/$id", body)
     }
 
-    private fun errorMessage(
+    private fun serverMessage(
         code: Int,
         text: String,
-    ): String {
-        if (code == 401 || code == 403) return "Server rejected the token (HTTP $code)"
+    ): String? {
+        if (code == 401 || code == 403) return null
         val msg =
             runCatching {
                 json.parseToJsonElement(text).jsonObject["message"]?.jsonPrimitive?.content
             }.getOrNull()
-        return msg?.takeIf { it.isNotBlank() } ?: "Server error (HTTP $code)"
+        return msg?.takeIf { it.isNotBlank() }
     }
 
     private companion object {

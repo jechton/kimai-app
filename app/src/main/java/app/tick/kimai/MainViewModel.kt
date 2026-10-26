@@ -81,8 +81,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private fun describe(e: Exception): String =
         when (e) {
-            is UnknownHostException -> "Can't reach the server"
-            else -> e.message ?: "Something went wrong"
+            is UnknownHostException -> app.getString(R.string.error_unreachable)
+            is NotSignedIn -> app.getString(R.string.error_not_signed_in)
+            is KimaiApi.ApiException ->
+                when {
+                    e.code == 401 || e.code == 403 -> app.getString(R.string.error_token_rejected, e.code)
+                    else -> e.serverMessage ?: app.getString(R.string.error_server, e.code)
+                }
+            else -> e.message ?: app.getString(R.string.error_generic)
         }
 
     private fun apply(r: SyncResult) {
@@ -193,8 +199,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun start() =
         launchBusy {
             val s = _ui.value
-            val project = s.selectedProject ?: error("Choose a project")
-            val activity = s.selectedActivity ?: error("Choose an activity")
+            val project = s.selectedProject ?: error(app.getString(R.string.error_choose_project))
+            val activity = s.selectedActivity ?: error(app.getString(R.string.error_choose_activity))
             prefs.lastProjectId = project.id
             prefs.lastActivityId = activity.id
             apply(

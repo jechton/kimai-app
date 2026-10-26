@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -39,6 +40,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
+import app.tick.kimai.R
 import app.tick.kimai.ui.TickTheme
 import kotlinx.coroutines.launch
 
@@ -123,22 +125,22 @@ private fun ConfigScreen(
     var themeMode by remember { mutableStateOf(initial.themeMode) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Widget settings") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.widget_settings)) }) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            Text("Background opacity: ${(opacity * 100).toInt()}%")
+            Text(stringResource(R.string.widget_opacity, (opacity * 100).toInt()))
             Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 0f..1f, steps = 9)
 
             Spacer(modifier = Modifier.height(8.dp))
-            SettingSwitch("Show week summary", showWeek) { showWeek = it }
-            SettingSwitch("Show recent entries", showRecent) { showRecent = it }
+            SettingSwitch(stringResource(R.string.widget_show_week), showWeek) { showWeek = it }
+            SettingSwitch(stringResource(R.string.widget_show_recent), showRecent) { showRecent = it }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Widget theme")
+            Text(stringResource(R.string.widget_theme))
             listOf(
-                TickWidget.THEME_MODE_AUTO to "Auto (follow system)",
-                TickWidget.THEME_MODE_LIGHT to "Light",
-                TickWidget.THEME_MODE_DARK to "Dark",
+                TickWidget.THEME_MODE_AUTO to stringResource(R.string.widget_theme_auto),
+                TickWidget.THEME_MODE_LIGHT to stringResource(R.string.widget_theme_light),
+                TickWidget.THEME_MODE_DARK to stringResource(R.string.widget_theme_dark),
             ).forEach { (mode, label) ->
                 Row(
                     modifier =
@@ -163,7 +165,7 @@ private fun ConfigScreen(
                 onClick = { onSave(WidgetConfig(opacity, showWeek, showRecent, themeMode)) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
         }
     }

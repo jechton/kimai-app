@@ -50,6 +50,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.tick.kimai.MainActivity
+import app.tick.kimai.R
 import app.tick.kimai.TimerRepository
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.RecentEntry
@@ -86,7 +87,11 @@ class TickWidget : GlanceAppWidget() {
         val week =
             weekTotals?.let {
                 val total = Fmt.hoursMinutes(it.total(state))
-                if (it.targetSeconds > 0) "Week: $total / ${Fmt.hoursMinutes(it.targetSeconds)}" else "Week: $total"
+                if (it.targetSeconds > 0) {
+                    context.getString(R.string.widget_week_target, total, Fmt.hoursMinutes(it.targetSeconds))
+                } else {
+                    context.getString(R.string.widget_week, total)
+                }
             }
         val weekFraction =
             weekTotals?.takeIf { it.targetSeconds > 0 }?.let { it.total(state).toFloat() / it.targetSeconds }
@@ -146,14 +151,17 @@ private fun WidgetContent(
     val background = ColorProvider(GlanceTheme.colors.widgetBackground.getColor(context).copy(alpha = opacity))
     val title =
         when {
-            s.running -> s.project.ifBlank { "Timer running" }
-            else -> "No timer running"
+            s.running -> s.project.ifBlank { context.getString(R.string.timer_running) }
+            else -> context.getString(R.string.no_timer_running)
         }
     val subtitle =
         when {
-            s.running -> listOf(s.activity, "since $since").filter { it.isNotBlank() }.joinToString(" · ")
-            s.lastLabel.isNotBlank() -> "Last: ${s.lastLabel}"
-            else -> "Tap to open Tick"
+            s.running ->
+                listOf(s.activity, context.getString(R.string.widget_since, since)).filter {
+                    it.isNotBlank()
+                }.joinToString(" · ")
+            s.lastLabel.isNotBlank() -> context.getString(R.string.widget_last, s.lastLabel)
+            else -> context.getString(R.string.widget_tap_to_open)
         }
 
     Column(
@@ -169,7 +177,7 @@ private fun WidgetContent(
         if (size.height <= SMALL.height) {
             // Too short for title/subtitle text; the button alone carries the state.
             Button(
-                text = if (s.running) "Stop" else "Start",
+                text = if (s.running) context.getString(R.string.stop) else context.getString(R.string.start),
                 onClick = actionRunCallback<ToggleAction>(),
                 modifier = GlanceModifier.fillMaxSize(),
             )
@@ -224,7 +232,7 @@ private fun WidgetContent(
         }
         Spacer(modifier = GlanceModifier.height(10.dp))
         Button(
-            text = if (s.running) "Stop" else "Start last",
+            text = if (s.running) context.getString(R.string.stop) else context.getString(R.string.start_last),
             onClick = actionRunCallback<ToggleAction>(),
             modifier = GlanceModifier.fillMaxWidth(),
         )
@@ -305,11 +313,16 @@ private fun dayRows(
         .toList()
         .sortedByDescending { (date, _) -> date }
         .flatMap { (date, entries) ->
-            listOf(DayRow.Header(Fmt.dayLabel(date), Fmt.hoursMinutes(entries.sumOf { it.seconds }))) +
+            listOf(DayRow.Header(Fmt.dayLabel(context, date), Fmt.hoursMinutes(entries.sumOf { it.seconds }))) +
                 entries.map {
                     val begin = Fmt.clock(context, it.beginMillis, timeMode)
                     val end = Fmt.clock(context, it.endMillis, timeMode)
-                    DayRow.Item(it.label.ifBlank { "Entry" }, "$begin – $end", Fmt.hoursMinutes(it.seconds))
+                    DayRow.Item(
+                        it.label.ifBlank {
+                            context.getString(R.string.entry_fallback)
+                        },
+                        "$begin – $end", Fmt.hoursMinutes(it.seconds),
+                    )
                 }
         }
 

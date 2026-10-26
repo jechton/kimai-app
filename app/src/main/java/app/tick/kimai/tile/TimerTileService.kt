@@ -3,6 +3,7 @@ package app.tick.kimai.tile
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import app.tick.kimai.R
 import app.tick.kimai.TimerRepository
 import app.tick.kimai.data.Prefs
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +42,7 @@ class TimerTileService : TileService() {
         tile.state = if (s.running) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Tick"
         if (Build.VERSION.SDK_INT >= 29) {
-            tile.subtitle = if (s.running) s.project else "Start last"
+            tile.subtitle = if (s.running) s.project else getString(R.string.start_last)
         }
         tile.updateTile()
     }
