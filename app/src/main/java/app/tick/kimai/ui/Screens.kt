@@ -1086,6 +1086,8 @@ private fun AddEntryDialog(
     val timeValid = end.isAfter(begin)
     val valid = ui.selectedProject != null && ui.selectedActivity != null && timeValid
 
+    LaunchedEffect(Unit) { vm.selectLastUsed() }
+
     fun millis(dt: LocalDateTime): Long = dt.atZone(zone).toInstant().toEpochMilli()
 
     AlertDialog(

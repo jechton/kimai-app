@@ -184,6 +184,15 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         launchBusy { loadActivities(p) }
     }
 
+    /** Preselect the last used project and activity (e.g. when opening the add-entry dialog). */
+    fun selectLastUsed() {
+        val s = _ui.value
+        val project = s.projects.firstOrNull { it.id == prefs.lastProjectId } ?: return
+        if (project.id == s.selectedProject?.id && s.selectedActivity?.id == prefs.lastActivityId) return
+        _ui.update { it.copy(selectedProject = project, activities = emptyList(), selectedActivity = null) }
+        launchBusy { loadActivities(project) }
+    }
+
     fun selectActivity(a: Activity) = _ui.update { it.copy(selectedActivity = a) }
 
     fun setDescription(text: String) = _ui.update { it.copy(description = text) }
@@ -230,6 +239,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         beginMillis: Long,
         endMillis: Long,
     ) = launchBusy {
+        prefs.lastProjectId = projectId
+        prefs.lastActivityId = activityId
         apply(repo.createEntry(projectId, activityId, description.trim(), beginMillis, endMillis).getOrThrow())
     }
 
