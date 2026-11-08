@@ -9,7 +9,11 @@ Tick: an Android client for [Kimai](https://www.kimai.org) (Kotlin, Jetpack Comp
 - Start/stop timers, pick project and activity, add a description
 - Ongoing notification with a live chronometer and a Stop button
 - Recent entries grouped by day: start again, edit (description, start/end date and time), delete
-- Home screen widget (Stop / Start last) and a Quick Settings tile
+- Edit a running entry's description and start time without stopping it; add a past entry directly
+- Week summary with progress bar toward Kimai's weekly target (or an in-app override), week navigation, and an estimated pay line (Kimai's per-entry rate or an hourly override, plus tax)
+- Offline queue for start/stop/restart/add/edit/delete, with a banner showing pending changes
+- Sign in by scanning (or uploading a screenshot of) Kimai's login QR code
+- Home screen widget (Stop / Start last) with per-widget opacity, theme and content settings, and a Quick Settings tile
 - Times follow the system 12/24h setting, overridable in the top-right menu (Time format)
 - Picks up timers started elsewhere (web UI) every 15 minutes in the background, and on app open
 
@@ -75,3 +79,24 @@ app/src/main/java/app/tick/kimai/
 ## Known gaps (per README)
 
 The ongoing notification is hosted by `TimerService` (foreground service) so it can't be swiped away. If the system refuses to start the service from the background (e.g. the 15-minute worker finds a timer started elsewhere), it falls back to a plain notification with a delete intent that re-posts it if swiped away; it is promoted again on the next sync or app open.
+
+## Feature status (checked against the code)
+
+Already built, so do not propose again: manual entry, backdating a running timer, week totals/target/pay, offline queue, QR sign-in, widget settings, foreground-service notification, battery-optimization prompt, ktlint CI and git-cliff releases.
+
+Not built yet (verified absent):
+- Tags and billable flag (`Entry` has no such fields)
+- Favorites / pinned project and activity combos
+- Undo after delete (snackbars are used for errors only)
+- Search or filter of history; per-project breakdown of totals
+- Launcher shortcuts; intent API for Tasker
+- Forgotten-timer or no-timer reminders
+- Geofence, Wi-Fi or NFC auto-start
+- CSV/PDF export
+- Offline cache of projects/activities: they live only in `UiState` in memory (`MainViewModel.loadProjects`), not in `Prefs`, so the picker needs a connection
+- Biometric lock, meta (custom) fields, day timeline view, Wear OS
+- Multiple servers (the non-goal note was removed, but there is no code for it)
+- Tests: no test directory exists
+- Localization: UI strings in `Screens.kt` are hardcoded English
+
+Layout note: the architecture tree above omits `util/` (`Fmt`, `QrImage`), `data/PendingAction.kt`, and `widget/TickWidgetConfigActivity.kt`.
