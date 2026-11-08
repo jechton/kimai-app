@@ -13,6 +13,9 @@ Tick: an Android client for [Kimai](https://www.kimai.org) (Kotlin, Jetpack Comp
 - Week summary with progress bar toward Kimai's weekly target (or an in-app override), week navigation, and an estimated pay line (Kimai's per-entry rate or an hourly override, plus tax)
 - Offline queue for start/stop/restart/add/edit/delete, with a banner showing pending changes
 - Sign in by scanning (or uploading a screenshot of) Kimai's login QR code
+- Favorites: star the selected project/activity to pin it; chips on the start card start it in one tap (hold to remove). Stored in `Prefs` with names, so they work offline
+- Delete is undoable: the entry is hidden and a snackbar offers Undo; the real delete (`MainViewModel.commitDelete`) is sent when the snackbar closes or the app stops
+- Project and activity lists are cached in `Prefs` (refreshed hourly, on the refresh button, and per project when picked), so the pickers work offline
 - Home screen widget (Stop / Start last) with per-widget opacity, theme and content settings, and a Quick Settings tile
 - Times follow the system 12/24h setting, overridable in the top-right menu (Time format)
 - Picks up timers started elsewhere (web UI) every 15 minutes in the background, and on app open
@@ -64,7 +67,7 @@ app/src/main/java/app/tick/kimai/
 
 `toggle()` is what the widget button and quick tile call: stop if a timer is running, otherwise restart the last entry. It takes `updateTile: Boolean` to avoid recursion when called *from* `TimerTileService` itself.
 
-**Offline queue.** Mutating calls in `TimerRepository` go through `perform()`: replay any queued changes first, then try the call; on a network failure (not an `ApiException`) the change is stored as a `PendingAction` in `Prefs`, the cached `TimerState` is updated optimistically, and `SyncWorker.flushWhenOnline` schedules a replay when connected. `flushQueue()` (also run at the start of every `sync()`) replays in order under a process-wide mutex and drops changes the server rejects. Timers started offline have no id, so a queued `Stop` ends whatever timer is running when replayed. Queued changes are lost on sign out.
+**Offline queue.** Mutating calls in `TimerRepository` go through `perform()`: replay any queued changes first, then try the call; on a network failure (not an `ApiException`) the change is stored as a `PendingAction` in `Prefs`, the cached `TimerState` is updated optimistically, and `SyncWorker.flushWhenOnline` schedules a replay when connected. `flushQueue()` (also run at the start of every `sync()`) replays in order under a process-wide mutex and drops changes the server rejects. A queued `Stop` carries the id of the timer the user stopped (0 if it was started offline); on replay it only ends a running entry that matches that id (or, for id 0, began before the stop time), so a timer started or stopped elsewhere meanwhile is left alone. Queued changes are lost on sign out, so the Sign out menu item asks for confirmation (with a Sync now option) while any are waiting.
 
 **Auth header logic lives in `KimaiApi`**: bearer token by default, or `X-AUTH-USER`/`X-AUTH-TOKEN` headers when `legacyUser` (from the optional username field) is non-blank.
 
@@ -82,18 +85,15 @@ The ongoing notification is hosted by `TimerService` (foreground service) so it 
 
 ## Feature status (checked against the code)
 
-Already built, so do not propose again: manual entry, backdating a running timer, week totals/target/pay, offline queue, QR sign-in, widget settings, foreground-service notification, battery-optimization prompt, ktlint CI and git-cliff releases.
+Already built, so do not propose again: favorites, undo after delete, offline project/activity cache, manual entry, backdating a running timer, week totals/target/pay, offline queue, QR sign-in, widget settings, foreground-service notification, battery-optimization prompt, ktlint CI and git-cliff releases.
 
 Not built yet (verified absent):
 - Tags and billable flag (`Entry` has no such fields)
-- Favorites / pinned project and activity combos
-- Undo after delete (snackbars are used for errors only)
 - Search or filter of history; per-project breakdown of totals
 - Launcher shortcuts; intent API for Tasker
 - Forgotten-timer or no-timer reminders
 - Geofence, Wi-Fi or NFC auto-start
 - CSV/PDF export
-- Offline cache of projects/activities: they live only in `UiState` in memory (`MainViewModel.loadProjects`), not in `Prefs`, so the picker needs a connection
 - Biometric lock, meta (custom) fields, day timeline view, Wear OS
 - Multiple servers (the non-goal note was removed, but there is no code for it)
 - Tests: no test directory exists

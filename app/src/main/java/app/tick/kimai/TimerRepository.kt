@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 
@@ -172,8 +173,14 @@ class TimerRepository(context: Context) {
             is PendingAction.Start -> api.start(action.projectId, action.activityId, action.description, action.begin)
             is PendingAction.Create ->
                 api.start(action.projectId, action.activityId, action.description, action.begin, action.end)
-            is PendingAction.Stop ->
-                api.recent(10).firstOrNull { it.isRunning }?.let { api.patchTimes(it.id, null, action.end) }
+            is PendingAction.Stop -> {
+                val endMillis = LocalDateTime.parse(action.end).atZone(userZone()).toInstant().toEpochMilli()
+                api.recent(10)
+                    .firstOrNull {
+                        it.isRunning && (action.entryId == 0 || it.id == action.entryId) && it.beginMillis <= endMillis
+                    }
+                    ?.let { api.patchTimes(it.id, null, action.end) }
+            }
             is PendingAction.Restart -> {
                 api.restart(action.entryId)
                 api.recent(10).firstOrNull { it.isRunning }?.let { api.patchTimes(it.id, action.begin, null) }
@@ -259,7 +266,7 @@ class TimerRepository(context: Context) {
 
     suspend fun stop(updateTile: Boolean = true): Result<SyncResult> =
         perform(
-            PendingAction.Stop(nowLocal()),
+            PendingAction.Stop(nowLocal(), prefs.timerState().id),
             updateTile,
             optimistic = {
                 it.copy(

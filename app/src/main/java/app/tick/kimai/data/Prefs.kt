@@ -3,6 +3,9 @@ package app.tick.kimai.data
 import android.content.Context
 import androidx.core.content.edit
 import app.tick.kimai.util.TimeMode
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 
 class Prefs(context: Context) {
     private val sp = context.applicationContext.getSharedPreferences("tick", Context.MODE_PRIVATE)
@@ -71,6 +74,42 @@ class Prefs(context: Context) {
             )
         }
 
+    /** Project and activity lists last fetched from Kimai, so the pickers still work offline. */
+    fun projects(): List<Project> = decode(sp.getString("projects", ""), Project.serializer())
+
+    fun saveProjects(list: List<Project>) =
+        sp.edit { putString("projects", json.encodeToString(ListSerializer(Project.serializer()), list)) }
+
+    fun activities(projectId: Int): List<Activity> =
+        decode(sp.getString("activities_$projectId", ""), Activity.serializer())
+
+    fun saveActivities(
+        projectId: Int,
+        list: List<Activity>,
+    ) = sp.edit {
+        putString("activities_$projectId", json.encodeToString(ListSerializer(Activity.serializer()), list))
+    }
+
+    /** When the project list was last fetched, to decide when to refresh it. */
+    var catalogFetchedAt: Long
+        get() = sp.getLong("catalog_at", 0L)
+        set(v) = sp.edit { putLong("catalog_at", v) }
+
+    fun favorites(): List<Favorite> = Favorite.decodeList(sp.getString("favorites", "").orEmpty())
+
+    fun saveFavorites(list: List<Favorite>) =
+        sp.edit {
+            if (list.isEmpty()) remove("favorites") else putString("favorites", Favorite.encodeList(list))
+        }
+
+    private fun <T> decode(
+        raw: String?,
+        item: KSerializer<T>,
+    ): List<T> =
+        raw?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { json.decodeFromString(ListSerializer(item), it) }.getOrNull() }
+            .orEmpty()
+
     fun pending(): List<PendingAction> = PendingAction.decodeList(sp.getString("pending", "").orEmpty())
 
     fun savePending(list: List<PendingAction>) =
@@ -96,6 +135,8 @@ class Prefs(context: Context) {
     var batteryPromptDismissed: Boolean
         get() = sp.getBoolean("battery_prompt_dismissed", false)
         set(v) = sp.edit { putBoolean("battery_prompt_dismissed", v) }
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     val loggedIn: Boolean get() = serverUrl.isNotBlank() && token.isNotBlank()
 

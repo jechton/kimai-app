@@ -9,7 +9,11 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +42,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -53,6 +59,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -61,8 +68,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -89,11 +99,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
 import app.tick.kimai.data.Entry
+import app.tick.kimai.data.Favorite
 import app.tick.kimai.data.KimaiQr
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
@@ -151,6 +164,21 @@ private fun LoginScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let { useQr(QrImage.decode(context, it)) }
         }
+
+    // A delete stays undoable while the snackbar shows; when it closes without Undo, the delete is sent.
+    LaunchedEffect(ui.undoEntry?.id) {
+        val entry = ui.undoEntry ?: return@LaunchedEffect
+        val result =
+            snackbar.showSnackbar(
+                message = "Deleted ${entry.label}",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Long,
+            )
+        if (result == SnackbarResult.ActionPerformed) vm.undoDelete() else vm.commitDelete()
+    }
+
+    // Don't leave a delete unsent when the app goes to the background.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { vm.commitDelete() }
 
     LaunchedEffect(ui.error) {
         ui.error?.let {
@@ -257,7 +285,7 @@ private fun HomeScreen(
     var showTargetDialog by remember { mutableStateOf(false) }
     var showPayDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Entry?>(null) }
-    var deleting by remember { mutableStateOf<Entry?>(null) }
+    var confirmSignOut by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
 
     val notifPermission =
@@ -331,7 +359,7 @@ private fun HomeScreen(
             TopAppBar(
                 title = { Text("Tick") },
                 actions = {
-                    IconButton(onClick = { vm.refresh() }) {
+                    IconButton(onClick = { vm.refresh(force = true) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                     Box {
@@ -369,7 +397,7 @@ private fun HomeScreen(
                                 text = { Text("Sign out") },
                                 onClick = {
                                     menuOpen = false
-                                    vm.logout()
+                                    if (ui.pending > 0) confirmSignOut = true else vm.logout()
                                 },
                             )
                         }
@@ -399,7 +427,7 @@ private fun HomeScreen(
                 )
             }
 
-            val finished = ui.entries.filter { !it.isRunning }
+            val finished = ui.entries.filter { !it.isRunning && it.id !in ui.deleted }
             val byDay = finished.groupBy { Fmt.localDate(it.beginMillis) }
 
             LazyColumn(
@@ -413,7 +441,7 @@ private fun HomeScreen(
                     item(key = "week") {
                         WeekSummary(
                             week = week,
-                            entries = ui.entries,
+                            entries = ui.entries.filter { it.id !in ui.deleted },
                             timer = ui.timer.takeIf { ui.weekOffset == 0 },
                             offset = ui.weekOffset,
                             start = ui.weekStart,
@@ -455,7 +483,7 @@ private fun HomeScreen(
                             mode = ui.timeMode,
                             onRestart = { vm.restart(entry) },
                             onEdit = { editing = entry },
-                            onDelete = { deleting = entry },
+                            onDelete = { vm.delete(entry) },
                         )
                     }
                 }
@@ -487,18 +515,31 @@ private fun HomeScreen(
         )
     }
 
-    deleting?.let { entry ->
+    if (confirmSignOut) {
         AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text("Delete entry?") },
-            text = { Text("${entry.label} (${Fmt.elapsed(entry.seconds)}) will be removed from Kimai.") },
+            onDismissRequest = { confirmSignOut = false },
+            title = { Text("Sign out with unsynced changes?") },
+            text = {
+                Text(
+                    "${ui.pending} change${if (ui.pending == 1) " hasn't" else "s haven't"} reached Kimai yet " +
+                        "and will be lost if you sign out. Sync first to keep them.",
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    vm.delete(entry)
-                    deleting = null
-                }) { Text("Delete") }
+                    confirmSignOut = false
+                    vm.logout()
+                }) { Text("Sign out anyway") }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        confirmSignOut = false
+                        vm.refresh(force = true)
+                    }) { Text("Sync now") }
+                    TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") }
+                }
+            },
         )
     }
 
@@ -749,6 +790,22 @@ private fun TimerCard(
 ) {
     val t = ui.timer
     val context = LocalContext.current
+    var removing by remember { mutableStateOf<Favorite?>(null) }
+
+    removing?.let { fav ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text("Remove favorite?") },
+            text = { Text(fav.label) },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.removeFavorite(fav)
+                    removing = null
+                }) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
+    }
 
     if (t.running) {
         var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -822,6 +879,26 @@ private fun TimerCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (ui.favorites.isNotEmpty()) {
+                    Text(
+                        "Favorites: tap to start, hold to remove",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ui.favorites.forEach { fav ->
+                            FavoriteChip(
+                                favorite = fav,
+                                enabled = !ui.busy,
+                                onStart = { vm.startFavorite(fav) },
+                                onRemove = { removing = fav },
+                            )
+                        }
+                    }
+                }
                 Picker(
                     label = "Project",
                     items = ui.projects,
@@ -842,16 +919,59 @@ private fun TimerCard(
                     label = { Text("Description (optional)") },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Button(
-                    onClick = { vm.start() },
-                    enabled = !ui.busy && ui.selectedProject != null && ui.selectedActivity != null,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Start")
+                val canStart = ui.selectedProject != null && ui.selectedActivity != null
+                val isFavorite =
+                    ui.favorites.any {
+                        it.projectId == ui.selectedProject?.id && it.activityId == ui.selectedActivity?.id
+                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(
+                        onClick = { vm.start() },
+                        enabled = !ui.busy && canStart,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Start")
+                    }
+                    IconToggleButton(
+                        checked = isFavorite,
+                        onCheckedChange = { vm.toggleFavorite() },
+                        enabled = canStart,
+                    ) {
+                        Icon(
+                            if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FavoriteChip(
+    favorite: Favorite,
+    enabled: Boolean,
+    onStart: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.combinedClickable(enabled = enabled, onClick = onStart, onLongClick = onRemove),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.width(18.dp))
+            Text(favorite.label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
 }

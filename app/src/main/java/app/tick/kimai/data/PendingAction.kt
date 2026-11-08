@@ -30,10 +30,14 @@ sealed class PendingAction {
         val end: String,
     ) : PendingAction()
 
-    /** Ends whatever timer is running when replayed, since a timer started offline has no id yet. */
+    /**
+     * Ends the timer the user stopped. [entryId] is that timer's id, or 0 when it was started offline and has
+     * none yet; then the running entry that began before [end] is the one. Replay skips the stop when no such
+     * entry is running, so a timer started or stopped elsewhere in the meantime is left alone.
+     */
     @Serializable
     @SerialName("stop")
-    data class Stop(val end: String) : PendingAction()
+    data class Stop(val end: String, val entryId: Int = 0) : PendingAction()
 
     @Serializable
     @SerialName("restart")

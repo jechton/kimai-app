@@ -138,6 +138,29 @@ data class RecentEntry(val label: String, val seconds: Long, val beginMillis: Lo
     }
 }
 
+/** A project and activity pair the user pinned for one-tap starts. Names are stored so it works offline. */
+@Serializable
+data class Favorite(
+    val projectId: Int,
+    val activityId: Int,
+    val project: String,
+    val activity: String,
+) {
+    val label: String get() = listOf(project, activity).filter { it.isNotBlank() }.joinToString(" \u00b7 ")
+
+    companion object {
+        private val json = Json { ignoreUnknownKeys = true }
+
+        // lazy for the same reason as RecentEntry's listSerializer.
+        private val listSerializer by lazy { ListSerializer(serializer()) }
+
+        fun decodeList(raw: String): List<Favorite> =
+            runCatching { json.decodeFromString(listSerializer, raw) }.getOrDefault(emptyList())
+
+        fun encodeList(list: List<Favorite>): String = json.encodeToString(listSerializer, list)
+    }
+}
+
 /** Seconds tracked in finished entries this week, and the contracted target (0 = none). */
 data class WeekTotals(val doneSeconds: Long, val targetSeconds: Long) {
     /** Adds the running timer's elapsed time, which grows between syncs. */

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.tick.kimai.data.Activity
 import app.tick.kimai.data.Entry
+import app.tick.kimai.data.Favorite
 import app.tick.kimai.data.KimaiApi
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.Project
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.net.UnknownHostException
 import java.time.LocalDate
 
@@ -42,6 +44,11 @@ data class UiState(
     val running: Entry? = null,
     /** Kimai's first day of the week as sent by the server, blank if it sent none. */
     val firstWeekday: String = "",
+    val favorites: List<Favorite> = emptyList(),
+    /** Ids hidden from the list because they are deleted, or about to be once the undo window closes. */
+    val deleted: Set<Int> = emptySet(),
+    /** The entry whose delete can still be undone. */
+    val undoEntry: Entry? = null,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -50,19 +57,39 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private val _ui =
         MutableStateFlow(
-            UiState(
-                loggedIn = prefs.loggedIn,
-                timer = prefs.timerState(),
-                timeMode = prefs.timeMode,
-                week = prefs.weekTotals(),
-                pending = prefs.pendingCount(),
-                weekTargetOverride = prefs.weekTargetOverride,
-                payRateOverride = prefs.payRateOverride,
-                payTaxPercent = prefs.payTaxPercent,
-                firstWeekday = prefs.firstWeekday,
+            cachedPickers(
+                UiState(
+                    loggedIn = prefs.loggedIn,
+                    timer = prefs.timerState(),
+                    timeMode = prefs.timeMode,
+                    week = prefs.weekTotals(),
+                    pending = prefs.pendingCount(),
+                    weekTargetOverride = prefs.weekTargetOverride,
+                    payRateOverride = prefs.payRateOverride,
+                    payTaxPercent = prefs.payTaxPercent,
+                    firstWeekday = prefs.firstWeekday,
+                    favorites = prefs.favorites(),
+                ),
             ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
+
+    /** Fills the project and activity pickers from the cache so they work before (or without) a connection. */
+    private fun cachedPickers(state: UiState): UiState {
+        if (!state.loggedIn) return state
+        val projects = prefs.projects()
+        val project = projects.firstOrNull { it.id == prefs.lastProjectId } ?: projects.firstOrNull()
+        val activities = project?.let { prefs.activities(it.id) }.orEmpty()
+        val activity = activities.firstOrNull { it.id == prefs.lastActivityId } ?: activities.firstOrNull()
+        return state.copy(
+            projects = projects,
+            selectedProject = project,
+            activities = activities,
+            selectedActivity = activity,
+        )
+    }
+
+    private fun isOffline(e: Throwable): Boolean = e is IOException && e !is KimaiApi.ApiException
 
     private fun launchBusy(block: suspend () -> Unit) {
         viewModelScope.launch {
@@ -147,11 +174,13 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     // Loading
 
-    fun refresh() =
+    /** [force] also re-fetches the project list; otherwise that happens when empty or older than an hour. */
+    fun refresh(force: Boolean = false) =
         launchBusy {
             if (!prefs.loggedIn) return@launchBusy
             apply(repo.sync().getOrThrow())
-            if (_ui.value.projects.isEmpty()) loadProjects()
+            val stale = System.currentTimeMillis() - prefs.catalogFetchedAt > CATALOG_TTL_MS
+            if (force || stale || _ui.value.projects.isEmpty()) loadProjects()
         }
 
     private suspend fun loadWeekView(offset: Int) {
@@ -162,25 +191,51 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     /** offset 0 is this week, -1 last week. Later weeks don't exist yet. */
     fun showWeek(offset: Int) = launchBusy { loadWeekView(offset.coerceAtMost(0)) }
 
+    /** Fetches the project list; when offline the cached one stays in place. */
     private suspend fun loadProjects() {
         val api = repo.apiOrNull() ?: return
-        val projects = api.projects()
-        val selected = projects.firstOrNull { it.id == prefs.lastProjectId } ?: projects.firstOrNull()
+        val projects =
+            try {
+                api.projects().also {
+                    prefs.saveProjects(it)
+                    prefs.catalogFetchedAt = System.currentTimeMillis()
+                }
+            } catch (e: IOException) {
+                if (!isOffline(e)) throw e
+                return
+            }
+        val wanted = _ui.value.selectedProject?.id ?: prefs.lastProjectId
+        val selected = projects.firstOrNull { it.id == wanted } ?: projects.firstOrNull()
         _ui.update { it.copy(projects = projects, selectedProject = selected) }
         if (selected != null) loadActivities(selected)
     }
 
+    /** Fetches a project's activities; when offline the cached ones are used. */
     private suspend fun loadActivities(project: Project) {
         val api = repo.apiOrNull() ?: return
-        val activities = api.activities(project.id)
-        val selected = activities.firstOrNull { it.id == prefs.lastActivityId } ?: activities.firstOrNull()
+        val activities =
+            try {
+                api.activities(project.id).also { prefs.saveActivities(project.id, it) }
+            } catch (e: IOException) {
+                if (!isOffline(e)) throw e
+                prefs.activities(project.id)
+            }
+        val current = _ui.value.selectedActivity?.takeIf { c -> activities.any { it.id == c.id } }
+        val selected = current ?: activities.firstOrNull { it.id == prefs.lastActivityId } ?: activities.firstOrNull()
         _ui.update { it.copy(activities = activities, selectedActivity = selected) }
+    }
+
+    /** Shows [p] with its cached activities right away; loadActivities then refreshes them. */
+    private fun showProject(p: Project) {
+        val cached = prefs.activities(p.id)
+        val activity = cached.firstOrNull { it.id == prefs.lastActivityId } ?: cached.firstOrNull()
+        _ui.update { it.copy(selectedProject = p, activities = cached, selectedActivity = activity) }
     }
 
     // Start form
 
     fun selectProject(p: Project) {
-        _ui.update { it.copy(selectedProject = p, activities = emptyList(), selectedActivity = null) }
+        showProject(p)
         launchBusy { loadActivities(p) }
     }
 
@@ -193,7 +248,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         }
         val project = s.projects.firstOrNull { it.id == prefs.lastProjectId } ?: return
         if (project.id == s.selectedProject?.id && s.selectedActivity?.id == prefs.lastActivityId) return
-        _ui.update { it.copy(selectedProject = project, activities = emptyList(), selectedActivity = null) }
+        showProject(project)
         launchBusy { loadActivities(project) }
     }
 
@@ -203,18 +258,44 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     // Timer actions
 
+    private suspend fun startNow(
+        projectId: Int,
+        activityId: Int,
+        projectName: String,
+        activityName: String,
+    ) {
+        prefs.lastProjectId = projectId
+        prefs.lastActivityId = activityId
+        apply(repo.start(projectId, activityId, _ui.value.description.trim(), projectName, activityName).getOrThrow())
+        _ui.update { it.copy(description = "") }
+    }
+
     fun start() =
         launchBusy {
             val s = _ui.value
             val project = s.selectedProject ?: error("Choose a project")
             val activity = s.selectedActivity ?: error("Choose an activity")
-            prefs.lastProjectId = project.id
-            prefs.lastActivityId = activity.id
-            apply(
-                repo.start(project.id, activity.id, s.description.trim(), project.name, activity.name).getOrThrow(),
-            )
-            _ui.update { it.copy(description = "") }
+            startNow(project.id, activity.id, project.name, activity.name)
         }
+
+    fun startFavorite(f: Favorite) = launchBusy { startNow(f.projectId, f.activityId, f.project, f.activity) }
+
+    /** Adds the selected project and activity to the favorites, or removes them if already there. */
+    fun toggleFavorite() {
+        val s = _ui.value
+        val project = s.selectedProject ?: return
+        val activity = s.selectedActivity ?: return
+        val existing = s.favorites.firstOrNull { it.projectId == project.id && it.activityId == activity.id }
+        val added = Favorite(project.id, activity.id, project.name, activity.name)
+        setFavorites(if (existing != null) s.favorites - existing else s.favorites + added)
+    }
+
+    fun removeFavorite(f: Favorite) = setFavorites(_ui.value.favorites - f)
+
+    private fun setFavorites(list: List<Favorite>) {
+        prefs.saveFavorites(list)
+        _ui.update { it.copy(favorites = list) }
+    }
 
     fun stop() =
         launchBusy {
@@ -231,10 +312,34 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             apply(repo.restart(_ui.value.timer.lastId).getOrThrow())
         }
 
-    fun delete(entry: Entry) =
+    /**
+     * Hides [entry] and starts the undo window; the delete is sent by [commitDelete] once the window
+     * closes. Deleting another entry meanwhile commits this one first.
+     */
+    fun delete(entry: Entry) {
+        commitDelete()
+        _ui.update { it.copy(deleted = it.deleted + entry.id, undoEntry = entry) }
+    }
+
+    fun undoDelete() {
+        val entry = _ui.value.undoEntry ?: return
+        _ui.update { it.copy(deleted = it.deleted - entry.id, undoEntry = null) }
+    }
+
+    /** Sends the staged delete to Kimai (or the offline queue). Safe to call when nothing is staged. */
+    fun commitDelete() {
+        val entry = _ui.value.undoEntry ?: return
+        _ui.update { it.copy(undoEntry = null) }
         launchBusy {
-            apply(repo.delete(entry.id).getOrThrow())
+            try {
+                apply(repo.delete(entry.id).getOrThrow())
+                // A delete that was only queued offline returns no list, so drop the row here.
+                _ui.update { s -> s.copy(entries = s.entries.filter { it.id != entry.id }) }
+            } finally {
+                _ui.update { it.copy(deleted = it.deleted - entry.id) }
+            }
         }
+    }
 
     fun addEntry(
         projectId: Int,
@@ -285,5 +390,9 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun setPayTax(percent: Double?) {
         prefs.payTaxPercent = percent?.takeIf { it > 0 }?.toFloat() ?: 0f
         _ui.update { it.copy(payTaxPercent = prefs.payTaxPercent) }
+    }
+
+    private companion object {
+        const val CATALOG_TTL_MS = 60 * 60 * 1000L
     }
 }
