@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -811,20 +814,29 @@ private fun WeekSummary(
             )
             if (week.paceSeconds >= 0) {
                 val gap = week.paceSeconds - total
-                Text(
-                    if (gap > 0) {
-                        "${Fmt.hoursMinutes(gap)} more today to stay on pace"
-                    } else {
-                        "${Fmt.hoursMinutes(-gap)} ahead of pace"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color =
-                        if (gap > 0) {
-                            MaterialTheme.colorScheme.tertiary
+                // Icon plus color, so behind/ahead isn't carried by color alone.
+                val behind = gap > 0
+                val tint = if (behind) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        if (behind) Icons.Default.Warning else Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        if (behind) {
+                            "${Fmt.hoursMinutes(gap)} more today to stay on pace"
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            "${Fmt.hoursMinutes(-gap)} ahead of pace"
                         },
-                )
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = tint,
+                    )
+                }
             }
         }
         val grossPay =
