@@ -41,6 +41,16 @@ class Prefs(context: Context) {
         get() = sp.getLong("week_target_override", 0L)
         set(v) = sp.edit { putLong("week_target_override", v) }
 
+    /** Days worked, typed into the app: bit 0 is Monday .. bit 6 Sunday. 0 means not set (all days count). */
+    var workDaysMask: Int
+        get() = sp.getInt("work_days_mask", 0)
+        set(v) = sp.edit { putInt("work_days_mask", v) }
+
+    /** Contracted seconds Monday..Sunday, comma separated; empty unless Kimai has a per-day contract. */
+    var workdays: String
+        get() = sp.getString("workdays", "").orEmpty()
+        set(v) = sp.edit { putString("workdays", v) }
+
     val effectiveWeekTarget: Long get() = weekTargetOverride.takeIf { it > 0 } ?: weekTarget
 
     /** Hourly pay rate typed into the app, overriding Kimai's per-entry rate when > 0. */

@@ -49,6 +49,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -71,6 +72,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -533,9 +535,10 @@ private fun HomeScreen(
     if (showTargetDialog) {
         WeekTargetDialog(
             currentSeconds = ui.weekTargetOverride,
+            currentDays = ui.workDaysMask,
             onDismiss = { showTargetDialog = false },
-            onSave = {
-                vm.setWeekTarget(it)
+            onSave = { hours, days ->
+                vm.setWeekTarget(hours, days)
                 showTargetDialog = false
             },
         )
@@ -613,28 +616,49 @@ private fun weekStartLabel(firstWeekday: String): String {
 @Composable
 private fun WeekTargetDialog(
     currentSeconds: Long,
+    currentDays: Int,
     onDismiss: () -> Unit,
-    onSave: (Double?) -> Unit,
+    onSave: (Double?, Int) -> Unit,
 ) {
     var text by remember {
         mutableStateOf(if (currentSeconds > 0) (currentSeconds / 3600.0).toString().removeSuffix(".0") else "")
     }
+    var days by remember { mutableIntStateOf(currentDays) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Weekly target") },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Hours per week") },
-                supportingText = { Text("Leave empty to use your Kimai contract") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Hours per week") },
+                    supportingText = { Text("Leave empty to use your Kimai contract") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text("Days you work", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    DayOfWeek.entries.forEach { d ->
+                        val bit = 1 shl (d.value - 1)
+                        FilterChip(
+                            selected = days and bit != 0,
+                            onClick = { days = days xor bit },
+                            label = { Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault())) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                Text(
+                    "Used for the on-pace line. None selected counts every day.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(parseDecimal(text)) }) { Text("Save") }
+            TextButton(onClick = { onSave(parseDecimal(text), days) }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -785,6 +809,23 @@ private fun WeekSummary(
                 // M3 1.3 draws a "stop indicator" dot at the track's end by default; we don't want it.
                 drawStopIndicator = {},
             )
+            if (week.paceSeconds >= 0) {
+                val gap = week.paceSeconds - total
+                Text(
+                    if (gap > 0) {
+                        "${Fmt.hoursMinutes(gap)} more today to stay on pace"
+                    } else {
+                        "${Fmt.hoursMinutes(-gap)} ahead of pace"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color =
+                        if (gap > 0) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
         }
         val grossPay =
             if (payRateOverride > 0) {

@@ -35,6 +35,7 @@ data class UiState(
     val week: WeekTotals? = null,
     val pending: Int = 0,
     val weekTargetOverride: Long = 0L,
+    val workDaysMask: Int = 0,
     val payRateOverride: Float = 0f,
     val payTaxPercent: Float = 0f,
     /** 0 is this week, -1 last week, and so on. The list and totals show this week. */
@@ -60,6 +61,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 week = prefs.weekTotals(),
                 pending = prefs.pendingCount(),
                 weekTargetOverride = prefs.weekTargetOverride,
+                workDaysMask = prefs.workDaysMask,
                 payRateOverride = prefs.payRateOverride,
                 payTaxPercent = prefs.payTaxPercent,
                 firstWeekday = prefs.firstWeekday,
@@ -284,14 +286,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     // Settings
 
     /** Hours per week typed in the app, or null to go back to the Kimai contract. */
-    fun setWeekTarget(hours: Double?) {
+    fun setWeekTarget(
+        hours: Double?,
+        workDays: Int,
+    ) {
         prefs.weekTargetOverride = hours?.takeIf { it > 0 }?.let { (it * 3600).toLong() } ?: 0L
-        _ui.update {
-            it.copy(
-                weekTargetOverride = prefs.weekTargetOverride,
-                week = it.week?.copy(targetSeconds = prefs.effectiveWeekTarget),
-            )
-        }
+        prefs.workDaysMask = workDays
+        _ui.update { it.copy(weekTargetOverride = prefs.weekTargetOverride, workDaysMask = workDays) }
+        showWeek(_ui.value.weekOffset) // recomputes the week's target and pace
         viewModelScope.launch { repo.refreshSurfaces(prefs.timerState()) }
     }
 

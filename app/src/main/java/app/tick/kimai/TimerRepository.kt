@@ -23,6 +23,7 @@ import java.io.IOException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 class NotSignedIn : IllegalStateException("Not signed in")
@@ -68,6 +69,7 @@ class TimerRepository(context: Context) {
         prefs.userTimezone = me.timezone.orEmpty()
         prefs.firstWeekday = me.firstWeekday.orEmpty()
         prefs.weekTarget = me.weekTargetSeconds
+        prefs.workdays = me.workdaySeconds.joinToString(",")
     }
 
     /**
@@ -82,7 +84,29 @@ class TimerRepository(context: Context) {
         val entries = api().between(begin, end).sortedByDescending { it.beginMillis }
         val done = entries.filter { !it.isRunning }.sumOf { it.seconds }
         if (offset == 0) prefs.saveWeekDone(done)
-        return WeekView(start, entries, WeekTotals(done, prefs.effectiveWeekTarget))
+        val target = prefs.effectiveWeekTarget
+        val pace = if (offset == 0) paceSeconds(start, LocalDate.now(zone), target) else -1L
+        return WeekView(start, entries, WeekTotals(done, target, pace))
+    }
+
+    /**
+     * The share of [target] due by the end of [today], weighted by Kimai's per-day contract hours.
+     * Without a per-day contract, the work days set in the app count the same, or every day if none are set.
+     */
+    private fun paceSeconds(
+        start: LocalDate,
+        today: LocalDate,
+        target: Long,
+    ): Long {
+        val perDay = prefs.workdays.split(",").mapNotNull { it.toLongOrNull() }.takeIf { it.size == 7 && it.sum() > 0 }
+        val mask = prefs.workDaysMask
+        val weights =
+            (0L..6L).map {
+                val day = start.plusDays(it).dayOfWeek.value - 1
+                perDay?.get(day) ?: if (mask == 0 || mask shr day and 1 == 1) 1L else 0L
+            }
+        val daysIn = (ChronoUnit.DAYS.between(start, today).toInt() + 1).coerceIn(0, 7)
+        return target * weights.take(daysIn).sum() / weights.sum()
     }
 
     suspend fun weekView(offset: Int): Result<WeekView> = runCatching { loadWeek(offset) }

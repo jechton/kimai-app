@@ -82,11 +82,19 @@ data class Me(
         get() =
             when (pref("work_contract_type")) {
                 "week" -> pref("hours_per_week")?.toLongOrNull() ?: 0L
-                "day" ->
-                    listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
-                        .sumOf { pref("work_$it")?.toLongOrNull() ?: 0L }
+                "day" -> workdaySeconds.sum()
                 else -> 0L
             }.coerceAtLeast(0L)
+
+    /** Contracted seconds for Monday..Sunday, or empty unless the contract is set per day. */
+    val workdaySeconds: List<Long>
+        get() =
+            if (pref("work_contract_type") != "day") {
+                emptyList()
+            } else {
+                listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+                    .map { (pref("work_$it")?.toLongOrNull() ?: 0L).coerceAtLeast(0L) }
+            }
 }
 
 @Serializable
@@ -139,7 +147,12 @@ data class RecentEntry(val label: String, val seconds: Long, val beginMillis: Lo
 }
 
 /** Seconds tracked in finished entries this week, and the contracted target (0 = none). */
-data class WeekTotals(val doneSeconds: Long, val targetSeconds: Long) {
+data class WeekTotals(
+    val doneSeconds: Long,
+    val targetSeconds: Long,
+    /** Part of the target due by the end of today; -1 when not the current week. */
+    val paceSeconds: Long = -1L,
+) {
     /** Adds the running timer's elapsed time, which grows between syncs. */
     fun total(
         timer: TimerState,
