@@ -82,3 +82,12 @@ app/src/main/java/app/tick/kimai/
 ## Known gaps (per README)
 
 The ongoing notification is hosted by `TimerService` (foreground service) so it can't be swiped away. If the system refuses to start the service from the background (e.g. the 15-minute worker finds a timer started elsewhere), it falls back to a plain notification with a delete intent that re-posts it if swiped away; it is promoted again on the next sync or app open.
+
+## Sibling repos and emulators
+
+Several Android projects live side by side on this machine and may be worked on in parallel sessions: `../tab` (AVD `tab`), `../kimai-app` (AVD `tick`), `../calendar-widget`. They share one adb server.
+
+- Only use this repo's own emulator and AVD. Never start, kill, wipe or install onto another repo's emulator.
+- Target it explicitly with `adb -s <serial>`, never bare `adb`, since another session's emulator may be attached too.
+- Start it on its own port (`emulator -avd <name> -port <even number>`) so serials do not collide.
+- Do not touch other repos' files or servers (tab's dev server runs on :8080) unless asked.
