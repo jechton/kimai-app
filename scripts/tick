@@ -29,7 +29,7 @@ case "${1:-}" in
       -k "system-images;android-35;google_apis_playstore;x86_64" -d pixel_6
     ;;
   emulator)
-    ANDROID_AVD_HOME="$HOME/.local/share/android/avd" emulator -avd tick
+    ANDROID_AVD_HOME="$HOME/.local/share/android/avd" emulator -avd tick -memory 1536
     ;;
   run)
     ./gradlew installDebug
