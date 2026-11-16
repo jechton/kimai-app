@@ -822,32 +822,53 @@ private fun WeekSummary(
                 drawStopIndicator = {},
             )
             val today = Instant.ofEpochMilli(now).atZone(week.zone).toLocalDate()
-            val pace = if (start != null) week.paceSeconds(start, today) else -1L
-            if (pace >= 0) {
-                val gap = pace - total
+            val zone = week.zone
+            val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
+            // Time tracked today, including a running timer that started earlier (counted from midnight).
+            val finishedToday =
+                entries.filter { !it.isRunning && Fmt.localDate(it.beginMillis, zone) == today }.sumOf { it.seconds }
+            val runningToday =
+                if (timer != null && timer.running) {
+                    ((now - maxOf(timer.beginMillis, dayStart)) / 1000).coerceAtLeast(0)
+                } else {
+                    0L
+                }
+            val doneToday = finishedToday + runningToday
+            val plan = if (start != null) week.pacePlan(start, today, total - doneToday) else null
+            if (plan != null) {
+                val todayLeft = plan.todayGoal - doneToday
+                val weekLeft = week.targetSeconds - total
                 // Under a minute either way counts as on pace, since the text only shows whole minutes.
-                val behind = gap >= 60
-                val ahead = gap <= -60
+                val message =
+                    when {
+                        weekLeft < 60 -> "Target reached"
+                        !plan.hasWorkLeft -> "${Fmt.hoursMinutes(weekLeft)} short, no work days left"
+                        todayLeft >= 60 -> "${Fmt.hoursMinutes(todayLeft)} more today to stay on pace"
+                        todayLeft <= -60 -> "${Fmt.hoursMinutes(-todayLeft)} ahead of today's goal"
+                        else -> "On pace"
+                    }
+                // Red only when earlier days were missed, not just because today's work isn't done yet.
+                val missed = plan.missedBefore >= 60 && weekLeft >= 60
                 // Icon plus color, so behind/ahead isn't carried by color alone.
-                val tint = if (behind) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                val tint = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Icon(
-                        if (behind) Icons.Default.Warning else Icons.Default.CheckCircle,
+                        if (missed) Icons.Default.Warning else Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = tint,
                         modifier = Modifier.size(16.dp),
                     )
+                    Text(message, style = MaterialTheme.typography.bodyMedium, color = tint)
+                }
+                if (plan.laterDays > 0 && weekLeft >= 60) {
+                    val days = if (plan.laterDays == 1) "1 more work day" else "${plan.laterDays} more work days"
                     Text(
-                        when {
-                            behind -> "${Fmt.hoursMinutes(gap)} more today to stay on pace"
-                            ahead -> "${Fmt.hoursMinutes(-gap)} ahead of pace"
-                            else -> "On pace"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = tint,
+                        "Then about ${Fmt.hoursMinutes(plan.laterPerDay)} a day for $days",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

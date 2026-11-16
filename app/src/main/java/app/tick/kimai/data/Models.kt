@@ -149,6 +149,17 @@ data class RecentEntry(val label: String, val seconds: Long, val beginMillis: Lo
     }
 }
 
+/** What the week still needs: today's goal and the average for each work day after today. */
+data class PacePlan(
+    val todayGoal: Long,
+    /** How far behind the even pace you were when today began. */
+    val missedBefore: Long,
+    /** False when today and the days after it carry no work, so nothing more can be planned. */
+    val hasWorkLeft: Boolean,
+    val laterDays: Int,
+    val laterPerDay: Long,
+)
+
 /** Seconds tracked in finished entries this week, and the contracted target (0 = none). */
 data class WeekTotals(
     val doneSeconds: Long,
@@ -162,17 +173,32 @@ data class WeekTotals(
         get() = runCatching { ZoneId.of(zoneId) }.getOrDefault(ZoneId.systemDefault())
 
     /**
-     * The part of the target due by the end of [today], or -1 when there is no pace to show.
-     * Worked out when drawn, so it stays right after midnight without a refresh.
+     * Today's share of what is still left, or null when there is no pace to show. Hours missed on earlier
+     * days are spread over today and the work days after it, by their weights, instead of landing on today.
+     * [doneBeforeToday] is everything tracked this week before today started. Worked out when drawn,
+     * so it stays right after midnight without a refresh.
      */
-    fun paceSeconds(
+    fun pacePlan(
         start: LocalDate,
         today: LocalDate,
-    ): Long {
+        doneBeforeToday: Long,
+    ): PacePlan? {
         val sum = paceWeights.sum()
-        if (paceWeights.size != 7 || sum <= 0 || targetSeconds <= 0) return -1L
-        val daysIn = (ChronoUnit.DAYS.between(start, today).toInt() + 1).coerceIn(0, 7)
-        return targetSeconds * paceWeights.take(daysIn).sum() / sum
+        if (paceWeights.size != 7 || sum <= 0 || targetSeconds <= 0) return null
+        val idx = ChronoUnit.DAYS.between(start, today).toInt()
+        if (idx !in 0..6) return null
+        val remaining = (targetSeconds - doneBeforeToday).coerceAtLeast(0)
+        val workLeft = paceWeights.drop(idx).sum()
+        val dueBefore = targetSeconds * paceWeights.take(idx).sum() / sum
+        val todayGoal = if (workLeft > 0) remaining * paceWeights[idx] / workLeft else 0L
+        val laterDays = paceWeights.drop(idx + 1).count { it > 0 }
+        return PacePlan(
+            todayGoal = todayGoal,
+            missedBefore = (dueBefore - doneBeforeToday).coerceAtLeast(0),
+            hasWorkLeft = workLeft > 0,
+            laterDays = laterDays,
+            laterPerDay = if (laterDays > 0) (remaining - todayGoal) / laterDays else 0L,
+        )
     }
 
     /** Adds the running timer's elapsed time, which grows between syncs. */

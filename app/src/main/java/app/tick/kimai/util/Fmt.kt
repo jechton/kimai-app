@@ -70,7 +70,10 @@ object Fmt {
         return "%dh %02dm".format(m / 60, m % 60)
     }
 
-    fun localDate(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+    fun localDate(
+        millis: Long,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): LocalDate = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
 
     fun dayLabel(d: LocalDate): String {
         val today = LocalDate.now()
