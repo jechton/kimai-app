@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -924,16 +925,29 @@ private fun WeekSummary(
                         todayLeft <= -60 -> "${Fmt.hoursMinutes(-todayLeft)} ahead of today's goal"
                         else -> "On pace"
                     }
-                // Red only when earlier days were missed, not just because today's work isn't done yet.
-                val missed = plan.missedBefore >= 60 && weekLeft >= 60
-                // Icon plus color, so behind/ahead isn't carried by color alone.
-                val tint = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                // Three states: green once today's goal is met, neutral while today's work is still to do, and
+                // red when earlier days were missed and today's catch-up isn't done (or no days are left).
+                val met = weekLeft < 60 || todayLeft < 60
+                val missed = weekLeft >= 60 && (!plan.hasWorkLeft || (plan.missedBefore >= 60 && !met))
+                val tint =
+                    when {
+                        missed -> MaterialTheme.colorScheme.error
+                        met -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                // Icon plus color, so the state isn't carried by color alone.
+                val icon =
+                    when {
+                        missed -> Icons.Default.Warning
+                        met -> Icons.Default.CheckCircle
+                        else -> Icons.Default.Schedule
+                    }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Icon(
-                        if (missed) Icons.Default.Warning else Icons.Default.CheckCircle,
+                        icon,
                         contentDescription = null,
                         tint = tint,
                         modifier = Modifier.size(16.dp),
