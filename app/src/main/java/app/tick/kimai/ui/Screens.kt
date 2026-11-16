@@ -654,7 +654,8 @@ private fun WeekTargetDialog(
                     }
                 }
                 Text(
-                    "Used for the on-pace line. None selected counts every day.",
+                    "Used for the on-pace line. Overrides the per-day hours in your Kimai contract. " +
+                        "None selected uses those hours if Kimai has them, otherwise every day.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -755,7 +756,15 @@ private fun WeekSummary(
     payTaxPercent: Float,
     onShow: (Int) -> Unit,
 ) {
-    val total = if (timer != null) week.total(timer) else week.doneSeconds
+    // Ticks each minute so the total and "today" stay current while the screen is open, even past midnight.
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000)
+            now = System.currentTimeMillis()
+        }
+    }
+    val total = if (timer != null) week.total(timer, now) else week.doneSeconds
     val title =
         when (offset) {
             0 -> "This week"
@@ -812,10 +821,14 @@ private fun WeekSummary(
                 // M3 1.3 draws a "stop indicator" dot at the track's end by default; we don't want it.
                 drawStopIndicator = {},
             )
-            if (week.paceSeconds >= 0) {
-                val gap = week.paceSeconds - total
+            val today = Instant.ofEpochMilli(now).atZone(week.zone).toLocalDate()
+            val pace = if (start != null) week.paceSeconds(start, today) else -1L
+            if (pace >= 0) {
+                val gap = pace - total
+                // Under a minute either way counts as on pace, since the text only shows whole minutes.
+                val behind = gap >= 60
+                val ahead = gap <= -60
                 // Icon plus color, so behind/ahead isn't carried by color alone.
-                val behind = gap > 0
                 val tint = if (behind) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -828,10 +841,10 @@ private fun WeekSummary(
                         modifier = Modifier.size(16.dp),
                     )
                     Text(
-                        if (behind) {
-                            "${Fmt.hoursMinutes(gap)} more today to stay on pace"
-                        } else {
-                            "${Fmt.hoursMinutes(-gap)} ahead of pace"
+                        when {
+                            behind -> "${Fmt.hoursMinutes(gap)} more today to stay on pace"
+                            ahead -> "${Fmt.hoursMinutes(-gap)} ahead of pace"
+                            else -> "On pace"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = tint,

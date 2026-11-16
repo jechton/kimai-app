@@ -8,6 +8,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /** Kimai returns project/activity as a bare id or as an object, depending on the endpoint. */
 @Serializable
@@ -150,9 +153,28 @@ data class RecentEntry(val label: String, val seconds: Long, val beginMillis: Lo
 data class WeekTotals(
     val doneSeconds: Long,
     val targetSeconds: Long,
-    /** Part of the target due by the end of today; -1 when not the current week. */
-    val paceSeconds: Long = -1L,
+    /** Share of the target due on each of the week's 7 days, in week order; empty when not the current week. */
+    val paceWeights: List<Long> = emptyList(),
+    /** Time zone the week was computed in; blank means the device's zone. */
+    val zoneId: String = "",
 ) {
+    val zone: ZoneId
+        get() = runCatching { ZoneId.of(zoneId) }.getOrDefault(ZoneId.systemDefault())
+
+    /**
+     * The part of the target due by the end of [today], or -1 when there is no pace to show.
+     * Worked out when drawn, so it stays right after midnight without a refresh.
+     */
+    fun paceSeconds(
+        start: LocalDate,
+        today: LocalDate,
+    ): Long {
+        val sum = paceWeights.sum()
+        if (paceWeights.size != 7 || sum <= 0 || targetSeconds <= 0) return -1L
+        val daysIn = (ChronoUnit.DAYS.between(start, today).toInt() + 1).coerceIn(0, 7)
+        return targetSeconds * paceWeights.take(daysIn).sum() / sum
+    }
+
     /** Adds the running timer's elapsed time, which grows between syncs. */
     fun total(
         timer: TimerState,
