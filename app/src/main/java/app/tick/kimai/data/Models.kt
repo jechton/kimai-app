@@ -201,6 +201,31 @@ data class WeekTotals(
         )
     }
 
+    /**
+     * The goal for each of the week's 7 days, or null when there is no pace to show. Days before [today]
+     * keep their even share of the target. Today and the days after share what is still left, by weight,
+     * which is the same plan [pacePlan] gives for today.
+     */
+    fun dayGoals(
+        start: LocalDate,
+        today: LocalDate,
+        doneBeforeToday: Long,
+    ): List<Long>? {
+        val sum = paceWeights.sum()
+        if (paceWeights.size != 7 || sum <= 0 || targetSeconds <= 0) return null
+        val idx = ChronoUnit.DAYS.between(start, today).toInt()
+        if (idx !in 0..6) return null
+        val remaining = (targetSeconds - doneBeforeToday).coerceAtLeast(0)
+        val workLeft = paceWeights.drop(idx).sum()
+        return paceWeights.mapIndexed { i, w ->
+            when {
+                i < idx -> targetSeconds * w / sum
+                workLeft > 0 -> remaining * w / workLeft
+                else -> 0L
+            }
+        }
+    }
+
     /** Adds the running timer's elapsed time, which grows between syncs. */
     fun total(
         timer: TimerState,
