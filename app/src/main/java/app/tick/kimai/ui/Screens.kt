@@ -107,9 +107,11 @@ import app.tick.kimai.MainViewModel
 import app.tick.kimai.UiState
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
+import app.tick.kimai.data.PaceState
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
 import app.tick.kimai.data.WeekTotals
+import app.tick.kimai.data.status
 import app.tick.kimai.util.Fmt
 import app.tick.kimai.util.QrImage
 import app.tick.kimai.util.TimeMode
@@ -765,11 +767,6 @@ private fun WeekGoals(
     goals: List<Long>,
     compact: Boolean,
 ) {
-    // Narrow columns: no space, and no minutes on a whole hour.
-    fun short(seconds: Long): String {
-        val m = seconds / 60
-        return if (m % 60 == 0L) "${m / 60}h" else "${m / 60}h%02dm".format(m % 60)
-    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -820,7 +817,7 @@ private fun WeekGoals(
                 }
                 // Hours worked over a divider, the goal underneath: reads as "worked of goal".
                 Text(
-                    if (goals[i] == 0L && done[i] == 0L) "off" else short(done[i]),
+                    if (goals[i] == 0L && done[i] == 0L) "off" else Fmt.narrow(done[i]),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (i == todayIdx) FontWeight.Bold else FontWeight.Normal,
                     textAlign = TextAlign.Center,
@@ -830,7 +827,7 @@ private fun WeekGoals(
                 if (goals[i] > 0) {
                     HorizontalDivider(Modifier.width(26.dp))
                     Text(
-                        short(goals[i]),
+                        Fmt.narrow(goals[i]),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -934,7 +931,6 @@ private fun WeekSummary(
                 modifier = Modifier.fillMaxWidth(),
                 color =
                     when {
-                        fraction >= 1f -> MaterialTheme.colorScheme.error
                         fraction >= 0.9f -> MaterialTheme.colorScheme.tertiary
                         fraction >= 0.5f -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.secondary
@@ -957,33 +953,21 @@ private fun WeekSummary(
             val doneToday = finishedToday + runningToday
             val plan = if (start != null) week.pacePlan(start, today, total - doneToday, doneToday) else null
             if (plan != null) {
-                val todayLeft = plan.todayGoal - doneToday
                 val weekLeft = week.targetSeconds - total
-                // Under a minute either way counts as on pace, since the text only shows whole minutes.
-                val message =
-                    when {
-                        weekLeft < 60 -> "Target reached"
-                        !plan.hasWorkLeft -> "${Fmt.hoursMinutes(weekLeft)} short, no work days left"
-                        todayLeft >= 60 -> "${Fmt.hoursMinutes(todayLeft)} more today to stay on pace"
-                        todayLeft <= -60 -> "${Fmt.hoursMinutes(-todayLeft)} ahead of today's goal"
-                        else -> "On pace"
-                    }
-                // Three states: green once today's goal is met, neutral while today's work is still to do, and
-                // red when earlier days were missed and today's catch-up isn't done (or no days are left).
-                val met = weekLeft < 60 || todayLeft < 60
-                val missed = weekLeft >= 60 && (!plan.hasWorkLeft || (plan.missedBefore >= 60 && !met))
+                val pace = plan.status(weekLeft, doneToday)
+                val message = pace.message
                 val tint =
-                    when {
-                        missed -> MaterialTheme.colorScheme.error
-                        met -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    when (pace.state) {
+                        PaceState.MISSED -> MaterialTheme.colorScheme.error
+                        PaceState.MET -> MaterialTheme.colorScheme.primary
+                        PaceState.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 // Icon plus color, so the state isn't carried by color alone.
                 val icon =
-                    when {
-                        missed -> Icons.Default.Warning
-                        met -> Icons.Default.CheckCircle
-                        else -> Icons.Default.Schedule
+                    when (pace.state) {
+                        PaceState.MISSED -> Icons.Default.Warning
+                        PaceState.MET -> Icons.Default.CheckCircle
+                        PaceState.PENDING -> Icons.Default.Schedule
                     }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

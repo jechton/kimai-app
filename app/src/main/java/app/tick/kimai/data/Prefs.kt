@@ -6,6 +6,7 @@ import app.tick.kimai.util.TimeMode
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.time.LocalDate
 
 class Prefs(context: Context) {
     private val sp = context.applicationContext.getSharedPreferences("tick", Context.MODE_PRIVATE)
@@ -77,9 +78,43 @@ class Prefs(context: Context) {
         set(v) = sp.edit { putString("start_presets", v.joinToString(",")) }
 
     fun weekTotals(): WeekTotals? =
-        sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let { WeekTotals(it, effectiveWeekTarget) }
+        sp.getLong("week_done", -1L).takeIf { it >= 0 }?.let {
+            WeekTotals(it, effectiveWeekTarget, csvLongs("week_weights"), sp.getString("week_zone", "").orEmpty())
+        }
 
-    fun saveWeekDone(seconds: Long) = sp.edit { putLong("week_done", seconds) }
+    /** The current week as last synced, for the widget: start, finished seconds per day, pace weights, Kimai pay. */
+    class WeekDetail(val start: LocalDate, val perDay: List<Long>, val kimaiPay: Double)
+
+    fun weekDetail(): WeekDetail? {
+        val start = sp.getString("week_start", null)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val perDay = csvLongs("week_days")
+        return if (start != null && perDay.size == 7) {
+            WeekDetail(
+                start,
+                perDay,
+                sp.getFloat("week_kimai_pay", 0f).toDouble(),
+            )
+        } else {
+            null
+        }
+    }
+
+    fun saveWeek(
+        start: LocalDate,
+        totals: WeekTotals,
+        perDay: List<Long>,
+        kimaiPay: Double,
+    ) = sp.edit {
+        putLong("week_done", totals.doneSeconds)
+        putString("week_start", start.toString())
+        putString("week_zone", totals.zoneId)
+        putString("week_weights", totals.paceWeights.joinToString(","))
+        putString("week_days", perDay.joinToString(","))
+        putFloat("week_kimai_pay", kimaiPay.toFloat())
+    }
+
+    private fun csvLongs(key: String): List<Long> =
+        sp.getString(key, "").orEmpty().split(",").mapNotNull { it.toLongOrNull() }
 
     /** Finished entries cached for the large widget's recent-entries list. */
     fun recentEntries(): List<RecentEntry> = RecentEntry.decodeList(sp.getString("recent_entries", "").orEmpty())

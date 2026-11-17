@@ -160,6 +160,42 @@ data class PacePlan(
     val laterPerDay: Long,
 )
 
+enum class PaceState { MET, MISSED, PENDING }
+
+/** The on-pace line: its text and state, shared by the app and the widget. */
+data class PaceStatus(val message: String, val state: PaceState)
+
+/**
+ * [weekLeft] is the target minus everything tracked this week, [doneToday] what was tracked today.
+ * Under a minute either way counts as on pace, since the text only shows whole minutes.
+ */
+fun PacePlan.status(
+    weekLeft: Long,
+    doneToday: Long,
+): PaceStatus {
+    val todayLeft = todayGoal - doneToday
+    val message =
+        when {
+            weekLeft < 60 -> "Target reached"
+            !hasWorkLeft -> "${Fmt.hoursMinutes(weekLeft)} short, no work days left"
+            todayLeft >= 60 -> "${Fmt.hoursMinutes(todayLeft)} more today to stay on pace"
+            todayLeft <= -60 -> "${Fmt.hoursMinutes(-todayLeft)} ahead of today's goal"
+            else -> "On pace"
+        }
+    // Green once today's goal is met, neutral while today's work is still to do, and red when earlier days
+    // were missed and today's catch-up isn't done (or no days are left).
+    val met = weekLeft < 60 || todayLeft < 60
+    val missed = weekLeft >= 60 && (!hasWorkLeft || (missedBefore >= 60 && !met))
+    return PaceStatus(
+        message,
+        when {
+            missed -> PaceState.MISSED
+            met -> PaceState.MET
+            else -> PaceState.PENDING
+        },
+    )
+}
+
 /** Seconds tracked in finished entries this week, and the contracted target (0 = none). */
 data class WeekTotals(
     val doneSeconds: Long,

@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.RadioButton
@@ -47,6 +49,11 @@ private data class WidgetConfig(
     val showWeek: Boolean,
     val showRecent: Boolean,
     val themeMode: String,
+    val showPace: Boolean,
+    val showPay: Boolean,
+    val strip: Int,
+    val recentCount: Int,
+    val tapToggle: Boolean,
 )
 
 /** Launched by the system when a widget is placed or (on launchers that support it) long-press "Edit". */
@@ -77,6 +84,11 @@ class TickWidgetConfigActivity : ComponentActivity() {
                                 showWeek = prefs[TickWidget.SHOW_WEEK_KEY] ?: true,
                                 showRecent = prefs[TickWidget.SHOW_RECENT_KEY] ?: true,
                                 themeMode = prefs[TickWidget.THEME_MODE_KEY] ?: TickWidget.THEME_MODE_AUTO,
+                                showPace = prefs[TickWidget.SHOW_PACE_KEY] ?: true,
+                                showPay = prefs[TickWidget.SHOW_PAY_KEY] ?: false,
+                                strip = prefs[TickWidget.STRIP_KEY] ?: 2,
+                                recentCount = prefs[TickWidget.RECENT_COUNT_KEY] ?: 0,
+                                tapToggle = prefs[TickWidget.TAP_TOGGLE_KEY] ?: false,
                             )
                     }
                     initial?.let { config ->
@@ -94,6 +106,11 @@ class TickWidgetConfigActivity : ComponentActivity() {
                                             this[TickWidget.SHOW_WEEK_KEY] = updated.showWeek
                                             this[TickWidget.SHOW_RECENT_KEY] = updated.showRecent
                                             this[TickWidget.THEME_MODE_KEY] = updated.themeMode
+                                            this[TickWidget.SHOW_PACE_KEY] = updated.showPace
+                                            this[TickWidget.SHOW_PAY_KEY] = updated.showPay
+                                            this[TickWidget.STRIP_KEY] = updated.strip
+                                            this[TickWidget.RECENT_COUNT_KEY] = updated.recentCount
+                                            this[TickWidget.TAP_TOGGLE_KEY] = updated.tapToggle
                                         }
                                     }
                                     TickWidget().update(this@TickWidgetConfigActivity, glanceId)
@@ -121,50 +138,92 @@ private fun ConfigScreen(
     var showWeek by remember { mutableStateOf(initial.showWeek) }
     var showRecent by remember { mutableStateOf(initial.showRecent) }
     var themeMode by remember { mutableStateOf(initial.themeMode) }
+    var showPace by remember { mutableStateOf(initial.showPace) }
+    var showPay by remember { mutableStateOf(initial.showPay) }
+    var strip by remember { mutableStateOf(initial.strip) }
+    var recentCount by remember { mutableStateOf(initial.recentCount) }
+    var tapToggle by remember { mutableStateOf(initial.tapToggle) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Widget settings") }) },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+        ) {
             Text("Background opacity: ${(opacity * 100).toInt()}%")
             Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 0f..1f, steps = 9)
 
             Spacer(modifier = Modifier.height(8.dp))
             SettingSwitch("Show week summary", showWeek) { showWeek = it }
-            SettingSwitch("Show recent entries", showRecent) { showRecent = it }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Widget theme")
-            listOf(
-                TickWidget.THEME_MODE_AUTO to "Auto (follow system)",
-                TickWidget.THEME_MODE_LIGHT to "Light",
-                TickWidget.THEME_MODE_DARK to "Dark",
-            ).forEach { (mode, label) ->
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = themeMode == mode,
-                                onClick = { themeMode = mode },
-                                role = Role.RadioButton,
-                            )
-                            .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RadioButton(selected = themeMode == mode, onClick = null)
-                    Spacer(Modifier.width(12.dp))
-                    Text(label)
-                }
+            if (showWeek) {
+                SettingSwitch("Show on-pace line", showPace) { showPace = it }
+                SettingSwitch("Show estimated pay", showPay) { showPay = it }
             }
+            SettingSwitch("Show recent entries", showRecent) { showRecent = it }
+            SettingSwitch("Tap widget to start or stop", tapToggle) { tapToggle = it }
+
+            if (showWeek) {
+                RadioGroup(
+                    "Week goals bars (tall widgets)",
+                    listOf(0 to "Full", 1 to "Compact", 2 to "Hidden"),
+                    strip,
+                ) { strip = it }
+            }
+            if (showRecent) {
+                RadioGroup(
+                    "Recent entries to list",
+                    listOf(3 to "3", 5 to "5", 10 to "10", 0 to "All cached"),
+                    recentCount,
+                ) { recentCount = it }
+            }
+            RadioGroup(
+                "Widget theme",
+                listOf(
+                    TickWidget.THEME_MODE_AUTO to "Auto (follow system)",
+                    TickWidget.THEME_MODE_LIGHT to "Light",
+                    TickWidget.THEME_MODE_DARK to "Dark",
+                ),
+                themeMode,
+            ) { themeMode = it }
 
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { onSave(WidgetConfig(opacity, showWeek, showRecent, themeMode)) },
+                onClick = {
+                    onSave(
+                        WidgetConfig(
+                            opacity, showWeek, showRecent, themeMode, showPace, showPay, strip, recentCount, tapToggle,
+                        ),
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Save")
             }
+        }
+    }
+}
+
+@Composable
+private fun <T> RadioGroup(
+    title: String,
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+) {
+    Spacer(modifier = Modifier.height(16.dp))
+    Text(title)
+    options.forEach { (value, label) ->
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .selectable(selected = selected == value, onClick = { onSelect(value) }, role = Role.RadioButton)
+                    .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(selected = selected == value, onClick = null)
+            Spacer(Modifier.width(12.dp))
+            Text(label)
         }
     }
 }

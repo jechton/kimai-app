@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.Button
 import androidx.glance.GlanceId
@@ -44,6 +45,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.material3.ColorProviders
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -51,10 +53,19 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.tick.kimai.MainActivity
 import app.tick.kimai.TimerRepository
+import app.tick.kimai.data.PaceState
+import app.tick.kimai.data.PaceStatus
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.RecentEntry
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.WeekTotals
+import app.tick.kimai.data.status
 import app.tick.kimai.util.Fmt
+import java.text.NumberFormat
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import java.util.Locale
+import java.time.format.TextStyle as JTextStyle
 
 private val SMALL = DpSize(90.dp, 60.dp)
 private val MEDIUM = DpSize(180.dp, 110.dp)
@@ -69,6 +80,15 @@ class TickWidget : GlanceAppWidget() {
         val OPACITY_KEY = floatPreferencesKey("opacity")
         val SHOW_WEEK_KEY = booleanPreferencesKey("show_week")
         val SHOW_RECENT_KEY = booleanPreferencesKey("show_recent")
+        val SHOW_PACE_KEY = booleanPreferencesKey("show_pace")
+        val SHOW_PAY_KEY = booleanPreferencesKey("show_pay")
+
+        /** Week goals bars: 0 full, 1 compact, 2 hidden (the default, so existing widgets look the same). */
+        val STRIP_KEY = intPreferencesKey("strip")
+
+        /** How many recent entries to list; 0 means all that are cached. */
+        val RECENT_COUNT_KEY = intPreferencesKey("recent_count")
+        val TAP_TOGGLE_KEY = booleanPreferencesKey("tap_toggle")
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
         const val THEME_MODE_AUTO = "auto"
         const val THEME_MODE_LIGHT = "light"
@@ -90,20 +110,31 @@ class TickWidget : GlanceAppWidget() {
             }
         val weekFraction =
             weekTotals?.takeIf { it.targetSeconds > 0 }?.let { it.total(state).toFloat() / it.targetSeconds }
-        val rows = dayRows(prefs.recentEntries(), context, prefs.timeMode)
+        val info = weekTotals?.let { weekInfo(prefs, state, it) }
         provideContent {
             val opacity = currentState(OPACITY_KEY) ?: 1f
             val showWeek = currentState(SHOW_WEEK_KEY) ?: true
             val showRecent = currentState(SHOW_RECENT_KEY) ?: true
+            val showPace = currentState(SHOW_PACE_KEY) ?: true
+            val showPay = currentState(SHOW_PAY_KEY) ?: false
+            val strip = currentState(STRIP_KEY) ?: 2
+            val recentCount = currentState(RECENT_COUNT_KEY) ?: 0
+            val tapToggle = currentState(TAP_TOGGLE_KEY) ?: false
             val themeMode = currentState(THEME_MODE_KEY) ?: THEME_MODE_AUTO
+            val recent = prefs.recentEntries().let { if (recentCount > 0) it.take(recentCount) else it }
             GlanceTheme(colors = ColorProviders(colorScheme(context, themeMode))) {
                 WidgetContent(
                     state,
                     since,
                     week.takeIf { showWeek },
                     weekFraction.takeIf { showWeek },
-                    rows.takeIf { showRecent } ?: emptyList(),
-                    opacity,
+                    info?.pace.takeIf { showWeek && showPace },
+                    info?.pay.takeIf { showWeek && showPay },
+                    info?.days.takeIf { showWeek && strip != 2 },
+                    compactStrip = strip == 1,
+                    rows = if (showRecent) dayRows(recent, context, prefs.timeMode) else emptyList(),
+                    opacity = opacity,
+                    tapToggle = tapToggle,
                 )
             }
         }
@@ -138,8 +169,13 @@ private fun WidgetContent(
     since: String,
     week: String?,
     weekFraction: Float?,
+    pace: PaceStatus?,
+    pay: String?,
+    days: List<DayBar>?,
+    compactStrip: Boolean,
     rows: List<DayRow>,
     opacity: Float,
+    tapToggle: Boolean,
 ) {
     val size = LocalSize.current
     val context = LocalContext.current
@@ -163,7 +199,7 @@ private fun WidgetContent(
                 .background(background)
                 .cornerRadius(24.dp)
                 .padding(if (size.height <= SMALL.height) 8.dp else 16.dp)
-                .clickable(actionStartActivity<MainActivity>()),
+                .clickable(if (tapToggle) actionRunCallback<ToggleAction>() else actionStartActivity<MainActivity>()),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         if (size.height <= SMALL.height) {
@@ -196,15 +232,21 @@ private fun WidgetContent(
                 ),
         )
         if (week != null && size.height >= LARGE.height) {
-            Text(
-                text = week,
-                maxLines = 1,
-                style =
-                    TextStyle(
-                        color = GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = 13.sp,
-                    ),
-            )
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
+                Text(
+                    text = week,
+                    maxLines = 1,
+                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
+                    modifier = GlanceModifier.defaultWeight(),
+                )
+                if (pay != null) {
+                    Text(
+                        text = "Est. $pay",
+                        maxLines = 1,
+                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
+                    )
+                }
+            }
         }
         if (weekFraction != null && size.height >= MEDIUM.height) {
             Spacer(modifier = GlanceModifier.height(6.dp))
@@ -214,13 +256,29 @@ private fun WidgetContent(
                 // Glance's default indicator color is a hardcoded static purple, not theme-aware.
                 color =
                     when {
-                        weekFraction >= 1f -> GlanceTheme.colors.error
                         weekFraction >= 0.9f -> GlanceTheme.colors.tertiary
                         weekFraction >= 0.5f -> GlanceTheme.colors.primary
                         else -> GlanceTheme.colors.secondary
                     },
                 backgroundColor = GlanceTheme.colors.surfaceVariant,
             )
+        }
+        if (pace != null && size.height >= LARGE.height) {
+            val tint =
+                when (pace.state) {
+                    PaceState.MISSED -> GlanceTheme.colors.error
+                    PaceState.MET -> GlanceTheme.colors.primary
+                    PaceState.PENDING -> GlanceTheme.colors.onSurfaceVariant
+                }
+            Text(
+                text = pace.message,
+                maxLines = 1,
+                style = TextStyle(color = tint, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                modifier = GlanceModifier.padding(top = 4.dp),
+            )
+        }
+        if (days != null && size.height >= XLARGE.height) {
+            WeekStrip(days, compactStrip)
         }
         Spacer(modifier = GlanceModifier.height(10.dp))
         Button(
@@ -283,6 +341,137 @@ private fun WidgetContent(
                                 )
                             }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** One day of the week goals strip; [state] MET also covers days still to come. */
+private data class DayBar(
+    val letter: String,
+    val done: String,
+    val goal: String?,
+    val fill: Float,
+    val state: PaceState,
+    val today: Boolean,
+)
+
+private data class WeekInfo(val pace: PaceStatus?, val pay: String?, val days: List<DayBar>?)
+
+/** Works out the pace line, estimated pay and per-day bars from what the last sync cached. */
+private fun weekInfo(
+    prefs: Prefs,
+    timer: TimerState,
+    totals: WeekTotals,
+): WeekInfo {
+    val total = totals.total(timer)
+    val gross =
+        if (prefs.payRateOverride > 0) {
+            prefs.payRateOverride * (total / 3600.0)
+        } else {
+            prefs.weekDetail()?.kimaiPay?.takeIf { it > 0 }
+        }
+    val pay = gross?.let { NumberFormat.getCurrencyInstance().format(it * (1 - prefs.payTaxPercent / 100.0)) }
+
+    val detail = prefs.weekDetail()
+    val zone = totals.zone
+    val today = LocalDate.now(zone)
+    val idx = detail?.let { ChronoUnit.DAYS.between(it.start, today).toInt() }
+    if (detail == null || idx == null || idx !in 0..6 || totals.targetSeconds <= 0) return WeekInfo(null, pay, null)
+
+    val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
+    val runningToday =
+        if (timer.running) {
+            ((System.currentTimeMillis() - maxOf(timer.beginMillis, dayStart)) / 1000).coerceAtLeast(
+                0,
+            )
+        } else {
+            0L
+        }
+    val done = detail.perDay.toMutableList().also { it[idx] += runningToday }
+    val doneToday = done[idx]
+    val plan = totals.pacePlan(detail.start, today, total - doneToday, doneToday)
+    val goals = totals.dayGoals(detail.start, today, total - doneToday, doneToday)
+    val pace = plan?.status(totals.targetSeconds - total, doneToday)
+    val days =
+        goals?.mapIndexed { i, goal ->
+            val met = goal > 0 && done[i] >= goal - 59
+            DayBar(
+                letter =
+                    detail.start.plusDays(
+                        i.toLong(),
+                    ).dayOfWeek.getDisplayName(JTextStyle.NARROW, Locale.getDefault()),
+                done = if (goal == 0L && done[i] == 0L) "off" else Fmt.narrow(done[i]),
+                goal = if (goal > 0) Fmt.narrow(goal) else null,
+                fill =
+                    when {
+                        goal > 0 -> (done[i].toFloat() / goal).coerceIn(0f, 1f)
+                        done[i] > 0 -> 1f
+                        else -> 0f
+                    },
+                state =
+                    when {
+                        met -> PaceState.MET
+                        i < idx && goal > 0 -> PaceState.MISSED
+                        i == idx -> PaceState.PENDING
+                        else -> PaceState.MET
+                    },
+                today = i == idx,
+            )
+        }
+    return WeekInfo(pace, pay, days)
+}
+
+@Composable
+private fun WeekStrip(
+    days: List<DayBar>,
+    compact: Boolean,
+) {
+    val barHeight = if (compact) 22.dp else 40.dp
+    Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp)) {
+        days.forEach { d ->
+            val color =
+                when (d.state) {
+                    PaceState.MISSED -> GlanceTheme.colors.error
+                    PaceState.MET -> GlanceTheme.colors.primary
+                    PaceState.PENDING -> GlanceTheme.colors.onSurfaceVariant
+                }
+            Column(
+                modifier = GlanceModifier.defaultWeight(),
+                horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
+            ) {
+                Text(
+                    d.letter,
+                    style =
+                        TextStyle(
+                            color = GlanceTheme.colors.onSurfaceVariant,
+                            fontSize = 10.sp,
+                            fontWeight = if (d.today) FontWeight.Bold else FontWeight.Normal,
+                        ),
+                )
+                // A track with the filled part at the bottom: a spacer above, a block below.
+                Column(
+                    modifier =
+                        GlanceModifier
+                            .width(12.dp)
+                            .height(barHeight)
+                            .padding(vertical = 0.dp)
+                            .background(GlanceTheme.colors.surfaceVariant)
+                            .cornerRadius(3.dp),
+                ) {
+                    Spacer(GlanceModifier.height(barHeight * (1f - d.fill)))
+                    if (d.fill > 0f) {
+                        Spacer(GlanceModifier.fillMaxWidth().height(barHeight * d.fill).background(color))
+                    }
+                }
+                Text(d.done, maxLines = 1, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 9.sp))
+                if (d.goal != null) {
+                    Text(
+                        d.goal,
+                        maxLines = 1,
+                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 9.sp),
+                    )
                 }
             }
         }

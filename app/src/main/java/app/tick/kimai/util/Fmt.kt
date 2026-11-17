@@ -64,6 +64,12 @@ object Fmt {
         return "%d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
     }
 
+    /** For narrow columns: no space, and no minutes on a whole hour, e.g. 8h or 7h45m. */
+    fun narrow(seconds: Long): String {
+        val m = seconds / 60
+        return if (m % 60 == 0L) "${m / 60}h" else "${m / 60}h%02dm".format(m % 60)
+    }
+
     /** Compact hours for day headers and the widget, e.g. 7h 45m. */
     fun hoursMinutes(seconds: Long): String {
         val m = seconds.coerceAtLeast(0) / 60

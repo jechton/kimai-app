@@ -23,6 +23,7 @@ import java.io.IOException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 class NotSignedIn : IllegalStateException("Not signed in")
@@ -81,11 +82,20 @@ class TimerRepository(context: Context) {
         val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
         val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
         val entries = api().between(begin, end).sortedByDescending { it.beginMillis }
-        val done = entries.filter { !it.isRunning }.sumOf { it.seconds }
-        if (offset == 0) prefs.saveWeekDone(done)
+        val finished = entries.filter { !it.isRunning }
+        val done = finished.sumOf { it.seconds }
         val target = prefs.effectiveWeekTarget
         val weights = if (offset == 0) paceWeights(start) else emptyList()
-        return WeekView(start, entries, WeekTotals(done, target, weights, zone.id))
+        val totals = WeekTotals(done, target, weights, zone.id)
+        if (offset == 0) {
+            val perDay = LongArray(7)
+            finished.forEach {
+                val i = ChronoUnit.DAYS.between(start, Fmt.localDate(it.beginMillis, zone)).toInt()
+                if (i in 0..6) perDay[i] += it.seconds
+            }
+            prefs.saveWeek(start, totals, perDay.toList(), finished.sumOf { it.rate ?: 0.0 })
+        }
+        return WeekView(start, entries, totals)
     }
 
     /**
