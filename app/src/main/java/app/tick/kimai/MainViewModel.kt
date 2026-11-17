@@ -8,7 +8,9 @@ import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiApi
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.Project
+import app.tick.kimai.data.TeamRow
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.User
 import app.tick.kimai.data.WeekTotals
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +49,12 @@ data class UiState(
     val firstWeekday: String = "",
     val startPresets: List<Int> = emptyList(),
     val hideDescription: Boolean = false,
+    /** The Kimai role may read other users' timesheets. */
+    val canViewOthers: Boolean = false,
+    val team: List<TeamRow> = emptyList(),
+    val teamOffset: Int = 0,
+    /** Whose week the list shows, read-only. Null is the signed-in user. */
+    val viewing: User? = null,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -69,6 +77,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 firstWeekday = prefs.firstWeekday,
                 startPresets = prefs.startPresets,
                 hideDescription = prefs.hideDescription,
+                canViewOthers = prefs.canViewOthers,
             ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
@@ -99,16 +108,18 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     private fun apply(r: SyncResult) {
         val offset = _ui.value.weekOffset
+        val viewingOther = _ui.value.viewing != null
         _ui.update {
             val updated =
                 it.copy(
                     firstWeekday = prefs.firstWeekday,
+                    canViewOthers = prefs.canViewOthers,
                     timer = r.state,
                     running = if (r.entries != null) r.running else it.running,
                     pending = r.pending,
                 )
             // A sync only brings the current week's list and totals; other weeks reload below.
-            if (offset == 0) {
+            if (offset == 0 && !viewingOther) {
                 updated.copy(
                     entries = r.entries ?: it.entries,
                     week = r.week ?: it.week,
@@ -118,7 +129,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 updated
             }
         }
-        if (offset != 0) viewModelScope.launch { runCatching { loadWeekView(offset) } }
+        if (offset != 0 || viewingOther) viewModelScope.launch { runCatching { loadWeekView(offset) } }
     }
 
     fun clearError() = _ui.update { it.copy(error = null) }
@@ -168,9 +179,23 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         }
 
     private suspend fun loadWeekView(offset: Int) {
-        val v = repo.weekView(offset).getOrThrow()
+        val v = repo.weekView(offset, _ui.value.viewing?.id).getOrThrow()
         _ui.update { it.copy(weekOffset = offset, weekStart = v.start, entries = v.entries, week = v.totals) }
     }
+
+    /** Shows [user]'s weeks read-only, or the signed-in user's own when null. */
+    fun viewUser(user: User?) =
+        launchBusy {
+            _ui.update { it.copy(viewing = user) }
+            loadWeekView(0)
+        }
+
+    /** Loads the team overview for the week [offset] weeks back. */
+    fun loadTeam(offset: Int) =
+        launchBusy {
+            val o = offset.coerceAtMost(0)
+            _ui.update { it.copy(team = repo.team(o).getOrThrow(), teamOffset = o) }
+        }
 
     /** offset 0 is this week, -1 last week. Later weeks don't exist yet. */
     fun showWeek(offset: Int) = launchBusy { loadWeekView(offset.coerceAtMost(0)) }

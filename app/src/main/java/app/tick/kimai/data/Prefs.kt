@@ -32,6 +32,11 @@ class Prefs(context: Context) {
         get() = sp.getString("first_weekday", "").orEmpty()
         set(v) = sp.edit { putString("first_weekday", v) }
 
+    /** Whether the Kimai role may read other users' timesheets. */
+    var canViewOthers: Boolean
+        get() = sp.getBoolean("can_view_others", false)
+        set(v) = sp.edit { putBoolean("can_view_others", v) }
+
     /** Contracted seconds per week from Kimai, 0 when none. */
     var weekTarget: Long
         get() = sp.getLong("week_target", 0L)

@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Schedule
@@ -285,6 +288,13 @@ private fun HomeScreen(
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     var showSettings by remember { mutableStateOf(false) }
+    var pickingUser by remember { mutableStateOf(false) }
+    // Back from someone else's week returns to the team list.
+    val leaveViewing = {
+        vm.viewUser(null)
+        pickingUser = true
+    }
+    BackHandler(enabled = ui.viewing != null, onBack = leaveViewing)
     var showTimeDialog by remember { mutableStateOf(false) }
     var showStripDialog by remember { mutableStateOf(false) }
     var showTargetDialog by remember { mutableStateOf(false) }
@@ -362,14 +372,43 @@ private fun HomeScreen(
             onPay = { showPayDialog = true },
             onPresets = { showPresetsDialog = true },
         )
+    } else if (pickingUser) {
+        TeamScreen(
+            vm = vm,
+            ui = ui,
+            onBack = { pickingUser = false },
+            onOpen = {
+                pickingUser = false
+                vm.viewUser(it)
+            },
+        )
     } else {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Tick") },
+                    title = { Text(ui.viewing?.display ?: "Tick") },
+                    navigationIcon = {
+                        if (ui.viewing != null) {
+                            IconButton(onClick = leaveViewing) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        }
+                    },
                     actions = {
-                        IconButton(onClick = { adding = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Add past entry")
+                        if (ui.viewing == null) {
+                            IconButton(onClick = { adding = true }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add past entry")
+                            }
+                        }
+                        if (ui.canViewOthers) {
+                            IconButton(
+                                onClick = {
+                                    pickingUser = true
+                                    vm.loadTeam(0)
+                                },
+                            ) {
+                                Icon(Icons.Default.People, contentDescription = "Team overview")
+                            }
                         }
                         IconButton(onClick = { showSettings = true }) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -407,14 +446,18 @@ private fun HomeScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
+                        val viewing = ui.viewing
+                        if (viewing == null) {
+                            item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
+                        } else {
+                        }
 
                         ui.week?.let { week ->
                             item(key = "week") {
                                 WeekSummary(
                                     week = week,
                                     entries = ui.entries,
-                                    timer = ui.timer.takeIf { ui.weekOffset == 0 },
+                                    timer = ui.timer.takeIf { ui.weekOffset == 0 && ui.viewing == null },
                                     offset = ui.weekOffset,
                                     start = ui.weekStart,
                                     payRateOverride = ui.payRateOverride,
@@ -427,7 +470,7 @@ private fun HomeScreen(
 
                         byDay.forEach { (day, list) ->
                             item(key = "day-$day") {
-                                val running = ui.running.takeIf { ui.weekOffset == 0 }
+                                val running = ui.running.takeIf { ui.weekOffset == 0 && ui.viewing == null }
                                 val runningSecs =
                                     if (running != null && Fmt.localDate(running.beginMillis) == day) {
                                         ((System.currentTimeMillis() - running.beginMillis) / 1000).coerceAtLeast(0)
@@ -454,6 +497,7 @@ private fun HomeScreen(
                                 EntryRow(
                                     entry = entry,
                                     mode = ui.timeMode,
+                                    readOnly = ui.viewing != null,
                                     onRestart = { vm.restart(entry) },
                                     onEdit = { editing = entry },
                                     onDelete = { deleting = entry },
@@ -1436,6 +1480,7 @@ private fun AddEntryDialog(
 private fun EntryRow(
     entry: Entry,
     mode: Int,
+    readOnly: Boolean,
     onRestart: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -1471,35 +1516,37 @@ private fun EntryRow(
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(Fmt.elapsed(entry.seconds), style = MaterialTheme.typography.titleMedium)
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Entry actions")
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Start again") },
-                                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    onRestart()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Edit") },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    onEdit()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Delete") },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    onDelete()
-                                },
-                            )
+                    if (!readOnly) {
+                        Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Entry actions")
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Start again") },
+                                    leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onRestart()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Edit") },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onEdit()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete") },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onDelete()
+                                    },
+                                )
+                            }
                         }
                     }
                 }

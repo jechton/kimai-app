@@ -71,7 +71,14 @@ class KimaiApi(
     suspend fun between(
         begin: String,
         end: String,
-    ): List<Entry> = getList("timesheets?full=true&begin=$begin&end=$end&size=1000", Entry.serializer())
+        user: String? = null,
+    ): List<Entry> =
+        getList(
+            "timesheets?full=true&begin=$begin&end=$end&size=1000" + (user?.let { "&user=$it" } ?: ""),
+            Entry.serializer(),
+        )
+
+    suspend fun users(): List<User> = getList("users?visible=1&size=500&order=ASC&orderBy=alias", User.serializer())
 
     suspend fun projects(): List<Project> = getList("projects?size=500&order=ASC&orderBy=name", Project.serializer())
 

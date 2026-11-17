@@ -32,6 +32,8 @@ data class Entry(
     val rate: Double? = null,
     @Serializable(with = RefSerializer::class) val project: Ref,
     @Serializable(with = RefSerializer::class) val activity: Ref,
+    /** Only set by the all-users query; the signed-in user otherwise. */
+    @Serializable(with = RefSerializer::class) val user: Ref? = null,
 ) {
     val isRunning: Boolean get() = end == null
     val beginMillis: Long get() = Fmt.parseMillis(begin)
@@ -64,13 +66,27 @@ data class Activity(
 )
 
 @Serializable
+data class User(
+    val id: Int,
+    val username: String = "",
+    val alias: String? = null,
+) {
+    val display: String get() = alias?.takeIf { it.isNotBlank() } ?: username
+}
+
+@Serializable
 data class Me(
     val id: Int = 0,
     val username: String = "",
     val alias: String? = null,
     val timezone: String? = null,
+    val roles: List<String> = emptyList(),
     val preferences: List<Pref> = emptyList(),
 ) {
+    /** Roles Kimai lets read other users' timesheets (the server still enforces it). */
+    val canViewOthers: Boolean
+        get() = roles.any { it in setOf("ROLE_TEAMLEAD", "ROLE_ADMIN", "ROLE_SUPER_ADMIN") }
+
     private fun pref(name: String): String? =
         preferences.firstOrNull { it.name == name }?.value?.let { (it as? JsonPrimitive)?.content }
 
@@ -276,3 +292,6 @@ data class WeekTotals(
         nowMillis: Long = System.currentTimeMillis(),
     ): Long = doneSeconds + if (timer.running) ((nowMillis - timer.beginMillis) / 1000).coerceAtLeast(0) else 0L
 }
+
+/** One person's finished seconds in a week, for the team overview. */
+data class TeamRow(val user: User, val doneSeconds: Long, val running: Boolean)

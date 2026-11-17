@@ -10,7 +10,9 @@ import app.tick.kimai.data.Me
 import app.tick.kimai.data.PendingAction
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.RecentEntry
+import app.tick.kimai.data.TeamRow
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.User
 import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.notify.TimerNotifier
 import app.tick.kimai.tile.TimerTileService
@@ -68,6 +70,7 @@ class TimerRepository(context: Context) {
     fun saveProfile(me: Me) {
         prefs.userTimezone = me.timezone.orEmpty()
         prefs.firstWeekday = me.firstWeekday.orEmpty()
+        prefs.canViewOthers = me.canViewOthers
         prefs.weekTarget = me.weekTargetSeconds
         prefs.workdays = me.workdaySeconds.joinToString(",")
     }
@@ -76,14 +79,19 @@ class TimerRepository(context: Context) {
      * Every entry in the week [offset] weeks back (0 = this week) plus its finished total. The week starts
      * on the Kimai user's first day of the week. The current week's total is cached for the widget.
      */
-    private suspend fun loadWeek(offset: Int): WeekView {
+    private suspend fun loadWeek(
+        offset: Int,
+        userId: Int? = null,
+    ): WeekView {
         val zone = userZone()
         val start = LocalDate.now(zone).with(TemporalAdjusters.previousOrSame(firstDay())).plusWeeks(offset.toLong())
         val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
         val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
-        val entries = api().between(begin, end).sortedByDescending { it.beginMillis }
+        val entries = api().between(begin, end, userId?.toString()).sortedByDescending { it.beginMillis }
         val finished = entries.filter { !it.isRunning }
         val done = finished.sumOf { it.seconds }
+        // Someone else's week: our target and pace don't apply, and the widget cache stays ours.
+        if (userId != null) return WeekView(start, entries, WeekTotals(done, 0L))
         val target = prefs.effectiveWeekTarget
         val weights = if (offset == 0) paceWeights(start) else emptyList()
         val totals = WeekTotals(done, target, weights, zone.id)
@@ -113,7 +121,29 @@ class TimerRepository(context: Context) {
         }
     }
 
-    suspend fun weekView(offset: Int): Result<WeekView> = runCatching { loadWeek(offset) }
+    suspend fun weekView(
+        offset: Int,
+        userId: Int? = null,
+    ): Result<WeekView> = runCatching { loadWeek(offset, userId) }
+
+    suspend fun users(): List<User> = api().users()
+
+    /** Everyone's finished hours in the week [offset] weeks back, most hours first. */
+    suspend fun team(offset: Int): Result<List<TeamRow>> =
+        runCatching {
+            val zone = userZone()
+            val start =
+                LocalDate.now(
+                    zone,
+                ).with(TemporalAdjusters.previousOrSame(firstDay())).plusWeeks(offset.toLong())
+            val begin = Fmt.apiLocal(start.atStartOfDay(zone).toInstant().toEpochMilli(), zone)
+            val end = Fmt.apiLocal(start.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli() - 1000, zone)
+            val byUser = api().between(begin, end, "all").groupBy { it.user?.id }
+            api().users().map { u ->
+                val mine = byUser[u.id].orEmpty()
+                TeamRow(u, mine.filter { !it.isRunning }.sumOf { it.seconds }, mine.any { it.isRunning })
+            }.sortedByDescending { it.doneSeconds }
+        }
 
     suspend fun sync(
         size: Int = 40,
