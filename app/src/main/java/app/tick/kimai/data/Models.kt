@@ -182,6 +182,7 @@ data class WeekTotals(
         start: LocalDate,
         today: LocalDate,
         doneBeforeToday: Long,
+        doneToday: Long = 0,
     ): PacePlan? {
         val sum = paceWeights.sum()
         if (paceWeights.size != 7 || sum <= 0 || targetSeconds <= 0) return null
@@ -197,7 +198,8 @@ data class WeekTotals(
             missedBefore = (dueBefore - doneBeforeToday).coerceAtLeast(0),
             hasWorkLeft = workLeft > 0,
             laterDays = laterDays,
-            laterPerDay = if (laterDays > 0) (remaining - todayGoal) / laterDays else 0L,
+            laterPerDay =
+                if (laterDays > 0) (remaining - maxOf(todayGoal, doneToday)).coerceAtLeast(0) / laterDays else 0L,
         )
     }
 
@@ -210,6 +212,7 @@ data class WeekTotals(
         start: LocalDate,
         today: LocalDate,
         doneBeforeToday: Long,
+        doneToday: Long = 0,
     ): List<Long>? {
         val sum = paceWeights.sum()
         if (paceWeights.size != 7 || sum <= 0 || targetSeconds <= 0) return null
@@ -217,10 +220,15 @@ data class WeekTotals(
         if (idx !in 0..6) return null
         val remaining = (targetSeconds - doneBeforeToday).coerceAtLeast(0)
         val workLeft = paceWeights.drop(idx).sum()
+        val todayGoal = if (workLeft > 0) remaining * paceWeights[idx] / workLeft else 0L
+        val laterWeight = workLeft - paceWeights[idx]
+        // Hours worked today beyond today's goal come off the later days.
+        val laterLeft = (remaining - maxOf(todayGoal, doneToday)).coerceAtLeast(0)
         return paceWeights.mapIndexed { i, w ->
             when {
                 i < idx -> targetSeconds * w / sum
-                workLeft > 0 -> remaining * w / workLeft
+                i == idx -> todayGoal
+                laterWeight > 0 -> laterLeft * w / laterWeight
                 else -> 0L
             }
         }

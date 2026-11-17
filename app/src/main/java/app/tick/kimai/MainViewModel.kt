@@ -23,6 +23,7 @@ data class UiState(
     val loggedIn: Boolean,
     val timer: TimerState,
     val timeMode: Int,
+    val weekStrip: Int = 0,
     val busy: Boolean = false,
     val refreshing: Boolean = false,
     val error: String? = null,
@@ -58,6 +59,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 loggedIn = prefs.loggedIn,
                 timer = prefs.timerState(),
                 timeMode = prefs.timeMode,
+                weekStrip = prefs.weekStrip,
                 week = prefs.weekTotals(),
                 pending = prefs.pendingCount(),
                 weekTargetOverride = prefs.weekTargetOverride,
@@ -143,7 +145,8 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun logout() {
         prefs.signOut()
-        _ui.value = UiState(loggedIn = false, timer = TimerState(), timeMode = prefs.timeMode)
+        _ui.value =
+            UiState(loggedIn = false, timer = TimerState(), timeMode = prefs.timeMode, weekStrip = prefs.weekStrip)
         viewModelScope.launch { repo.refreshSurfaces(TimerState()) }
     }
 
@@ -295,6 +298,11 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(weekTargetOverride = prefs.weekTargetOverride, workDaysMask = workDays) }
         showWeek(_ui.value.weekOffset) // recomputes the week's target and pace
         viewModelScope.launch { repo.refreshSurfaces(prefs.timerState()) }
+    }
+
+    fun setWeekStrip(mode: Int) {
+        prefs.weekStrip = mode
+        _ui.update { it.copy(weekStrip = mode) }
     }
 
     fun setTimeMode(mode: Int) {

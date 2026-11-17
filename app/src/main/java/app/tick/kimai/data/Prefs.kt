@@ -130,6 +130,11 @@ class Prefs(context: Context) {
         get() = sp.getInt("time_mode", TimeMode.SYSTEM)
         set(v) = sp.edit { putInt("time_mode", v) }
 
+    /** How the week strip shows: 0 full, 1 compact, 2 hidden. */
+    var weekStrip: Int
+        get() = sp.getInt("week_strip", 0)
+        set(v) = sp.edit { putInt("week_strip", v) }
+
     var lastProjectId: Int
         get() = sp.getInt("last_project", 0)
         set(v) = sp.edit { putInt("last_project", v) }

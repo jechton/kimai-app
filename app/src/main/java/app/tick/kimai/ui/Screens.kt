@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -56,6 +57,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -280,8 +282,9 @@ private fun HomeScreen(
 ) {
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
-    var menuOpen by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     var showTimeDialog by remember { mutableStateOf(false) }
+    var showStripDialog by remember { mutableStateOf(false) }
     var showTargetDialog by remember { mutableStateOf(false) }
     var showPayDialog by remember { mutableStateOf(false) }
     var showPresetsDialog by remember { mutableStateOf(false) }
@@ -346,155 +349,114 @@ private fun HomeScreen(
 
     ShowErrors(ui, vm, snackbar)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Tick") },
-                actions = {
-                    IconButton(onClick = { adding = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add past entry")
-                    }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+    if (showSettings) {
+        SettingsScreen(
+            vm = vm,
+            ui = ui,
+            onBack = { showSettings = false },
+            onTime = { showTimeDialog = true },
+            onStrip = { showStripDialog = true },
+            onTarget = { showTargetDialog = true },
+            onPay = { showPayDialog = true },
+            onPresets = { showPresetsDialog = true },
+        )
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Tick") },
+                    actions = {
+                        IconButton(onClick = { adding = true }) {
+                            Icon(Icons.Default.Add, contentDescription = "Add past entry")
                         }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text(weekStartLabel(ui.firstWeekday)) },
-                                enabled = false,
-                                onClick = {},
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Time format") },
-                                onClick = {
-                                    menuOpen = false
-                                    showTimeDialog = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Weekly target") },
-                                onClick = {
-                                    menuOpen = false
-                                    showTargetDialog = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Pay rate & tax") },
-                                onClick = {
-                                    menuOpen = false
-                                    showPayDialog = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Start presets") },
-                                onClick = {
-                                    menuOpen = false
-                                    showPresetsDialog = true
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (ui.hideDescription) "Show description field" else "Hide description field",
-                                    )
-                                },
-                                onClick = {
-                                    menuOpen = false
-                                    vm.setHideDescription(!ui.hideDescription)
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Sign out") },
-                                onClick = {
-                                    menuOpen = false
-                                    vm.logout()
-                                },
-                            )
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings")
                         }
-                    }
-                },
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (ui.busy && !ui.refreshing) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            if (ui.pending > 0) {
-                Text(
-                    if (ui.pending == 1) "1 change waiting to sync" else "${ui.pending} changes waiting to sync",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.tertiaryContainer)
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    },
                 )
-            }
+            },
+            snackbarHost = { SnackbarHost(snackbar) },
+        ) { padding ->
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                if (ui.busy && !ui.refreshing) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                if (ui.pending > 0) {
+                    Text(
+                        if (ui.pending == 1) "1 change waiting to sync" else "${ui.pending} changes waiting to sync",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
 
-            val finished = ui.entries.filter { !it.isRunning }
-            val byDay = finished.groupBy { Fmt.localDate(it.beginMillis) }
+                val finished = ui.entries.filter { !it.isRunning }
+                val byDay = finished.groupBy { Fmt.localDate(it.beginMillis) }
 
-            PullToRefreshBox(
-                isRefreshing = ui.refreshing,
-                onRefresh = { vm.refresh() },
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                LazyColumn(
+                PullToRefreshBox(
+                    isRefreshing = ui.refreshing,
+                    onRefresh = { vm.refresh() },
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item(key = "timer") { TimerCard(vm, ui, onEdit = { editing = it }) }
 
-                    ui.week?.let { week ->
-                        item(key = "week") {
-                            WeekSummary(
-                                week = week,
-                                entries = ui.entries,
-                                timer = ui.timer.takeIf { ui.weekOffset == 0 },
-                                offset = ui.weekOffset,
-                                start = ui.weekStart,
-                                payRateOverride = ui.payRateOverride,
-                                payTaxPercent = ui.payTaxPercent,
-                                onShow = { vm.showWeek(it) },
-                            )
-                        }
-                    }
-
-                    byDay.forEach { (day, list) ->
-                        item(key = "day-$day") {
-                            val running = ui.running.takeIf { ui.weekOffset == 0 }
-                            val runningSecs =
-                                if (running != null && Fmt.localDate(running.beginMillis) == day) {
-                                    ((System.currentTimeMillis() - running.beginMillis) / 1000).coerceAtLeast(0)
-                                } else {
-                                    0L
-                                }
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text(
-                                    Fmt.dayLabel(day),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    Fmt.hoursMinutes(list.sumOf { it.seconds } + runningSecs),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ui.week?.let { week ->
+                            item(key = "week") {
+                                WeekSummary(
+                                    week = week,
+                                    entries = ui.entries,
+                                    timer = ui.timer.takeIf { ui.weekOffset == 0 },
+                                    offset = ui.weekOffset,
+                                    start = ui.weekStart,
+                                    payRateOverride = ui.payRateOverride,
+                                    payTaxPercent = ui.payTaxPercent,
+                                    strip = ui.weekStrip,
+                                    onShow = { vm.showWeek(it) },
                                 )
                             }
                         }
-                        items(list, key = { it.id }) { entry ->
-                            EntryRow(
-                                entry = entry,
-                                mode = ui.timeMode,
-                                onRestart = { vm.restart(entry) },
-                                onEdit = { editing = entry },
-                                onDelete = { deleting = entry },
-                            )
+
+                        byDay.forEach { (day, list) ->
+                            item(key = "day-$day") {
+                                val running = ui.running.takeIf { ui.weekOffset == 0 }
+                                val runningSecs =
+                                    if (running != null && Fmt.localDate(running.beginMillis) == day) {
+                                        ((System.currentTimeMillis() - running.beginMillis) / 1000).coerceAtLeast(0)
+                                    } else {
+                                        0L
+                                    }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        Fmt.dayLabel(day),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        Fmt.hoursMinutes(list.sumOf { it.seconds } + runningSecs),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            items(list, key = { it.id }) { entry ->
+                                EntryRow(
+                                    entry = entry,
+                                    mode = ui.timeMode,
+                                    onRestart = { vm.restart(entry) },
+                                    onEdit = { editing = entry },
+                                    onDelete = { deleting = entry },
+                                )
+                            }
                         }
                     }
                 }
@@ -546,6 +508,7 @@ private fun HomeScreen(
         WeekTargetDialog(
             currentSeconds = ui.weekTargetOverride,
             currentDays = ui.workDaysMask,
+            firstWeekday = ui.firstWeekday,
             onDismiss = { showTargetDialog = false },
             onSave = { hours, days ->
                 vm.setWeekTarget(hours, days)
@@ -575,6 +538,39 @@ private fun HomeScreen(
                 vm.setStartPresets(it)
                 showPresetsDialog = false
             },
+        )
+    }
+
+    if (showStripDialog) {
+        AlertDialog(
+            onDismissRequest = { showStripDialog = false },
+            title = { Text("Week goals view") },
+            text = {
+                Column {
+                    listOf(0 to "Full", 1 to "Compact", 2 to "Hidden").forEach { (mode, label) ->
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = ui.weekStrip == mode,
+                                        onClick = {
+                                            vm.setWeekStrip(mode)
+                                            showStripDialog = false
+                                        },
+                                        role = Role.RadioButton,
+                                    )
+                                    .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = ui.weekStrip == mode, onClick = null)
+                            Spacer(Modifier.width(12.dp))
+                            Text(label)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showStripDialog = false }) { Text("Close") } },
         )
     }
 
@@ -617,7 +613,7 @@ private fun HomeScreen(
 }
 
 /** Shows which day Kimai says the week starts on, so a wrong week is easy to trace. */
-private fun weekStartLabel(firstWeekday: String): String {
+internal fun weekStartLabel(firstWeekday: String): String {
     val day = runCatching { DayOfWeek.valueOf(firstWeekday.uppercase()) }.getOrNull()
     val name = (day ?: DayOfWeek.MONDAY).getDisplayName(TextStyle.FULL, Locale.getDefault())
     return if (day != null) "Week starts on $name (from Kimai)" else "Week starts on $name (default)"
@@ -627,6 +623,7 @@ private fun weekStartLabel(firstWeekday: String): String {
 private fun WeekTargetDialog(
     currentSeconds: Long,
     currentDays: Int,
+    firstWeekday: String,
     onDismiss: () -> Unit,
     onSave: (Double?, Int) -> Unit,
 ) {
@@ -650,7 +647,11 @@ private fun WeekTargetDialog(
                 )
                 Text("Days you work", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    DayOfWeek.entries.forEach { d ->
+                    // Start on the week's first day, like the goals under the pace line.
+                    val first =
+                        runCatching { DayOfWeek.valueOf(firstWeekday.uppercase()) }
+                            .getOrDefault(DayOfWeek.MONDAY)
+                    (0L..6L).map { first.plus(it) }.forEach { d ->
                         val bit = 1 shl (d.value - 1)
                         FilterChip(
                             selected = days and bit != 0,
@@ -762,8 +763,13 @@ private fun WeekGoals(
     todayIdx: Int,
     done: List<Long>,
     goals: List<Long>,
+    compact: Boolean,
 ) {
-    fun hours(seconds: Long) = "%.1f".format(seconds / 3600.0)
+    // Narrow columns: no space, and no minutes on a whole hour.
+    fun short(seconds: Long): String {
+        val m = seconds / 60
+        return if (m % 60 == 0L) "${m / 60}h" else "${m / 60}h%02dm".format(m % 60)
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -777,7 +783,14 @@ private fun WeekGoals(
                     done[i] > 0 -> 1f
                     else -> 0f
                 }
-            val barColor = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+            val met = goals[i] > 0 && done[i] >= goals[i] - 59
+            val barColor =
+                when {
+                    met -> MaterialTheme.colorScheme.primary
+                    missed -> MaterialTheme.colorScheme.error
+                    i == todayIdx -> MaterialTheme.colorScheme.onSurfaceVariant
+                    else -> MaterialTheme.colorScheme.primary
+                }
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -798,26 +811,33 @@ private fun WeekGoals(
                         Modifier
                             .padding(vertical = 2.dp)
                             .width(18.dp)
-                            .height(48.dp)
+                            .height(if (compact) 28.dp else 48.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     Box(Modifier.fillMaxWidth().fillMaxHeight(fill).background(barColor))
                 }
+                // Hours worked over a divider, the goal underneath: reads as "worked of goal".
                 Text(
-                    hours(done[i]),
+                    if (goals[i] == 0L && done[i] == 0L) "off" else short(done[i]),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (i == todayIdx) FontWeight.Bold else FontWeight.Normal,
                     textAlign = TextAlign.Center,
-                )
-                Text(
-                    if (goals[i] > 0) "of ${hours(goals[i])}" else "off",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
                     maxLines = 1,
+                    softWrap = false,
                 )
+                if (goals[i] > 0) {
+                    HorizontalDivider(Modifier.width(26.dp))
+                    Text(
+                        short(goals[i]),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
             }
         }
     }
@@ -832,6 +852,7 @@ private fun WeekSummary(
     start: LocalDate?,
     payRateOverride: Float,
     payTaxPercent: Float,
+    strip: Int,
     onShow: (Int) -> Unit,
 ) {
     // Ticks each minute so the total and "today" stay current while the screen is open, even past midnight.
@@ -883,7 +904,29 @@ private fun WeekSummary(
             } else {
                 Fmt.hoursMinutes(total)
             }
-        Text(text, style = MaterialTheme.typography.titleMedium)
+        val grossPay =
+            if (payRateOverride > 0) {
+                payRateOverride * (total / 3600.0)
+            } else {
+                // Kimai's own per-entry rate; a currently running entry has none yet.
+                entries.filter { !it.isRunning }.sumOf { it.rate ?: 0.0 }.takeIf { it > 0 }
+            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text, style = MaterialTheme.typography.titleMedium)
+            if (grossPay != null && grossPay > 0) {
+                val netPay = grossPay * (1 - payTaxPercent / 100.0)
+                val currency = remember { NumberFormat.getCurrencyInstance() }
+                Text(
+                    "Est. ${currency.format(netPay)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         if (week.targetSeconds > 0) {
             val fraction = total.toFloat() / week.targetSeconds
             LinearProgressIndicator(
@@ -912,7 +955,7 @@ private fun WeekSummary(
                     0L
                 }
             val doneToday = finishedToday + runningToday
-            val plan = if (start != null) week.pacePlan(start, today, total - doneToday) else null
+            val plan = if (start != null) week.pacePlan(start, today, total - doneToday, doneToday) else null
             if (plan != null) {
                 val todayLeft = plan.todayGoal - doneToday
                 val weekLeft = week.targetSeconds - total
@@ -962,8 +1005,8 @@ private fun WeekSummary(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                val goals = if (start != null) week.dayGoals(start, today, total - doneToday) else null
-                if (start != null && goals != null) {
+                val goals = if (start != null) week.dayGoals(start, today, total - doneToday, doneToday) else null
+                if (start != null && goals != null && strip != 2) {
                     val done = LongArray(7)
                     entries.filter { !it.isRunning }.forEach {
                         val i = ChronoUnit.DAYS.between(start, Fmt.localDate(it.beginMillis, zone)).toInt()
@@ -971,26 +1014,9 @@ private fun WeekSummary(
                     }
                     val todayIdx = ChronoUnit.DAYS.between(start, today).toInt()
                     done[todayIdx] += runningToday
-                    WeekGoals(start, todayIdx, done.toList(), goals)
+                    WeekGoals(start, todayIdx, done.toList(), goals, compact = strip == 1)
                 }
             }
-        }
-        val grossPay =
-            if (payRateOverride > 0) {
-                payRateOverride * (total / 3600.0)
-            } else {
-                // Kimai's own per-entry rate; a currently running entry has none yet.
-                entries.filter { !it.isRunning }.sumOf { it.rate ?: 0.0 }.takeIf { it > 0 }
-            }
-        if (grossPay != null && grossPay > 0) {
-            val netPay = grossPay * (1 - payTaxPercent / 100.0)
-            val currency = remember { NumberFormat.getCurrencyInstance() }
-            val payText = "Est. pay: ${currency.format(netPay)}"
-            Text(
-                payText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -1449,6 +1475,7 @@ private fun EntryRow(
                 Text(
                     entry.project.name ?: "Project ${entry.project.id}",
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis,
                 )
             },
