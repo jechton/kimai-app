@@ -69,11 +69,13 @@ import java.time.format.TextStyle as JTextStyle
 
 private val SMALL = DpSize(90.dp, 60.dp)
 private val MEDIUM = DpSize(180.dp, 110.dp)
+private val TALL = DpSize(180.dp, 140.dp)
+private val TALL_WIDE = DpSize(250.dp, 140.dp)
 private val LARGE = DpSize(250.dp, 180.dp)
 private val XLARGE = DpSize(250.dp, 300.dp)
 
 class TickWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE, XLARGE))
+    override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, TALL, TALL_WIDE, LARGE, XLARGE))
 
     companion object {
         /** 1f is fully opaque (the old default), 0f is fully transparent. */
@@ -83,8 +85,8 @@ class TickWidget : GlanceAppWidget() {
         val SHOW_PACE_KEY = booleanPreferencesKey("show_pace")
         val SHOW_PAY_KEY = booleanPreferencesKey("show_pay")
 
-        /** Week goals bars: 0 full, 1 compact, 2 hidden (the default, so existing widgets look the same). */
-        val STRIP_KEY = intPreferencesKey("strip")
+        /** Week goals bars under the pace line, off by default so existing widgets look the same. */
+        val BARS_KEY = booleanPreferencesKey("bars")
 
         /** How many recent entries to list; 0 means all that are cached. */
         val RECENT_COUNT_KEY = intPreferencesKey("recent_count")
@@ -117,7 +119,7 @@ class TickWidget : GlanceAppWidget() {
             val showRecent = currentState(SHOW_RECENT_KEY) ?: true
             val showPace = currentState(SHOW_PACE_KEY) ?: true
             val showPay = currentState(SHOW_PAY_KEY) ?: false
-            val strip = currentState(STRIP_KEY) ?: 2
+            val bars = currentState(BARS_KEY) ?: false
             val recentCount = currentState(RECENT_COUNT_KEY) ?: 0
             val tapToggle = currentState(TAP_TOGGLE_KEY) ?: false
             val themeMode = currentState(THEME_MODE_KEY) ?: THEME_MODE_AUTO
@@ -130,8 +132,7 @@ class TickWidget : GlanceAppWidget() {
                     weekFraction.takeIf { showWeek },
                     info?.pace.takeIf { showWeek && showPace },
                     info?.pay.takeIf { showWeek && showPay },
-                    info?.days.takeIf { showWeek && strip != 2 },
-                    compactStrip = strip == 1,
+                    info?.days.takeIf { showWeek && bars },
                     rows = if (showRecent) dayRows(recent, context, prefs.timeMode) else emptyList(),
                     opacity = opacity,
                     tapToggle = tapToggle,
@@ -172,7 +173,6 @@ private fun WidgetContent(
     pace: PaceStatus?,
     pay: String?,
     days: List<DayBar>?,
-    compactStrip: Boolean,
     rows: List<DayRow>,
     opacity: Float,
     tapToggle: Boolean,
@@ -198,16 +198,26 @@ private fun WidgetContent(
                 .fillMaxSize()
                 .background(background)
                 .cornerRadius(24.dp)
-                .padding(if (size.height <= SMALL.height) 8.dp else 16.dp)
+                .padding(if (size.height <= SMALL.height) 6.dp else 16.dp)
                 .clickable(if (tapToggle) actionRunCallback<ToggleAction>() else actionStartActivity<MainActivity>()),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         if (size.height <= SMALL.height) {
-            // Too short for title/subtitle text; the button alone carries the state.
+            // Short widget: a one-line state above a normal-height button, not one giant button.
+            Text(
+                text = title,
+                maxLines = 1,
+                style =
+                    TextStyle(
+                        color = GlanceTheme.colors.onSurface,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+            )
             Button(
                 text = if (s.running) "Stop" else "Start",
                 onClick = actionRunCallback<ToggleAction>(),
-                modifier = GlanceModifier.fillMaxSize(),
+                modifier = GlanceModifier.fillMaxWidth().height(36.dp),
             )
             return@Column
         }
@@ -222,16 +232,19 @@ private fun WidgetContent(
                     fontWeight = FontWeight.Medium,
                 ),
         )
-        Text(
-            text = subtitle,
-            maxLines = 1,
-            style =
-                TextStyle(
-                    color = GlanceTheme.colors.onSurfaceVariant,
-                    fontSize = 13.sp,
-                ),
-        )
-        if (week != null && size.height >= LARGE.height) {
+        // Medium-height widgets with the week line have no room for the "Last:" line too.
+        if (week == null || size.height >= LARGE.height) {
+            Text(
+                text = subtitle,
+                maxLines = 1,
+                style =
+                    TextStyle(
+                        color = GlanceTheme.colors.onSurfaceVariant,
+                        fontSize = 13.sp,
+                    ),
+            )
+        }
+        if (week != null && size.height >= TALL.height) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
                 Text(
                     text = week,
@@ -239,7 +252,7 @@ private fun WidgetContent(
                     style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
                     modifier = GlanceModifier.defaultWeight(),
                 )
-                if (pay != null) {
+                if (pay != null && size.width >= LARGE.width) {
                     Text(
                         text = "Est. $pay",
                         maxLines = 1,
@@ -278,11 +291,18 @@ private fun WidgetContent(
             )
         }
         if (days != null && size.height >= XLARGE.height) {
-            WeekStrip(days, compactStrip)
+            WeekStrip(days)
         }
         Spacer(modifier = GlanceModifier.height(10.dp))
         Button(
-            text = if (s.running) "Stop" else "Start last",
+            text =
+                if (s.running) {
+                    "Stop"
+                } else if (size.width >= LARGE.width) {
+                    "Start last"
+                } else {
+                    "Start"
+                },
             onClick = actionRunCallback<ToggleAction>(),
             modifier = GlanceModifier.fillMaxWidth(),
         )
@@ -424,11 +444,8 @@ private fun weekInfo(
 }
 
 @Composable
-private fun WeekStrip(
-    days: List<DayBar>,
-    compact: Boolean,
-) {
-    val barHeight = if (compact) 22.dp else 40.dp
+private fun WeekStrip(days: List<DayBar>) {
+    val barHeight = 22.dp
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp)) {
         days.forEach { d ->
             val color =

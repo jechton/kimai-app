@@ -51,7 +51,7 @@ private data class WidgetConfig(
     val themeMode: String,
     val showPace: Boolean,
     val showPay: Boolean,
-    val strip: Int,
+    val bars: Boolean,
     val recentCount: Int,
     val tapToggle: Boolean,
 )
@@ -86,7 +86,7 @@ class TickWidgetConfigActivity : ComponentActivity() {
                                 themeMode = prefs[TickWidget.THEME_MODE_KEY] ?: TickWidget.THEME_MODE_AUTO,
                                 showPace = prefs[TickWidget.SHOW_PACE_KEY] ?: true,
                                 showPay = prefs[TickWidget.SHOW_PAY_KEY] ?: false,
-                                strip = prefs[TickWidget.STRIP_KEY] ?: 2,
+                                bars = prefs[TickWidget.BARS_KEY] ?: false,
                                 recentCount = prefs[TickWidget.RECENT_COUNT_KEY] ?: 0,
                                 tapToggle = prefs[TickWidget.TAP_TOGGLE_KEY] ?: false,
                             )
@@ -108,7 +108,7 @@ class TickWidgetConfigActivity : ComponentActivity() {
                                             this[TickWidget.THEME_MODE_KEY] = updated.themeMode
                                             this[TickWidget.SHOW_PACE_KEY] = updated.showPace
                                             this[TickWidget.SHOW_PAY_KEY] = updated.showPay
-                                            this[TickWidget.STRIP_KEY] = updated.strip
+                                            this[TickWidget.BARS_KEY] = updated.bars
                                             this[TickWidget.RECENT_COUNT_KEY] = updated.recentCount
                                             this[TickWidget.TAP_TOGGLE_KEY] = updated.tapToggle
                                         }
@@ -140,7 +140,7 @@ private fun ConfigScreen(
     var themeMode by remember { mutableStateOf(initial.themeMode) }
     var showPace by remember { mutableStateOf(initial.showPace) }
     var showPay by remember { mutableStateOf(initial.showPay) }
-    var strip by remember { mutableStateOf(initial.strip) }
+    var bars by remember { mutableStateOf(initial.bars) }
     var recentCount by remember { mutableStateOf(initial.recentCount) }
     var tapToggle by remember { mutableStateOf(initial.tapToggle) }
 
@@ -158,17 +158,11 @@ private fun ConfigScreen(
             if (showWeek) {
                 SettingSwitch("Show on-pace line", showPace) { showPace = it }
                 SettingSwitch("Show estimated pay", showPay) { showPay = it }
+                SettingSwitch("Show week goal bars (tall widgets)", bars) { bars = it }
             }
             SettingSwitch("Show recent entries", showRecent) { showRecent = it }
             SettingSwitch("Tap widget to start or stop", tapToggle) { tapToggle = it }
 
-            if (showWeek) {
-                RadioGroup(
-                    "Week goals bars (tall widgets)",
-                    listOf(0 to "Full", 1 to "Compact", 2 to "Hidden"),
-                    strip,
-                ) { strip = it }
-            }
             if (showRecent) {
                 RadioGroup(
                     "Recent entries to list",
@@ -191,7 +185,7 @@ private fun ConfigScreen(
                 onClick = {
                     onSave(
                         WidgetConfig(
-                            opacity, showWeek, showRecent, themeMode, showPace, showPay, strip, recentCount, tapToggle,
+                            opacity, showWeek, showRecent, themeMode, showPace, showPay, bars, recentCount, tapToggle,
                         ),
                     )
                 },
