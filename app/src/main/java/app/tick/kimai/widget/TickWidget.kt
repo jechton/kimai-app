@@ -411,11 +411,9 @@ private fun weekInfo(
         }
     val done = detail.perDay.toMutableList().also { it[idx] += runningToday }
     val doneToday = done[idx]
-    // Entries dated after today must not count toward the pace.
-    val doneBefore = done.take(idx).sum()
-    val plan = totals.pacePlan(detail.start, today, doneBefore, doneToday)
-    val goals = totals.dayGoals(detail.start, today, doneBefore, doneToday)
-    val pace = plan?.status(totals.targetSeconds - (doneBefore + doneToday), doneToday)
+    val plan = totals.pacePlan(detail.start, today, total - doneToday, doneToday)
+    val goals = totals.dayGoals(detail.start, today, total - doneToday, doneToday)
+    val pace = plan?.status(totals.targetSeconds - total, doneToday)
     val days =
         goals?.mapIndexed { i, goal ->
             val met = goal > 0 && done[i] >= goal - 59

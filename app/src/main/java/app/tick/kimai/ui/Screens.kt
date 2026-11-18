@@ -1025,19 +1025,9 @@ private fun WeekSummary(
                     0L
                 }
             val doneToday = finishedToday + runningToday
-            // Entries dated after today (planned or mistyped) must not count toward the pace.
-            val doneBefore =
-                if (start != null) {
-                    entries.filter { !it.isRunning && Fmt.localDate(it.beginMillis, zone) < today }
-                        .filter { Fmt.localDate(it.beginMillis, zone) >= start }
-                        .sumOf { it.seconds }
-                } else {
-                    0L
-                }
-            val paceTotal = doneBefore + doneToday
-            val plan = if (start != null) week.pacePlan(start, today, doneBefore, doneToday) else null
+            val plan = if (start != null) week.pacePlan(start, today, total - doneToday, doneToday) else null
             if (plan != null) {
-                val weekLeft = week.targetSeconds - paceTotal
+                val weekLeft = week.targetSeconds - total
                 val pace = plan.status(weekLeft, doneToday)
                 val message = pace.message
                 val tint =
@@ -1073,7 +1063,7 @@ private fun WeekSummary(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                val goals = if (start != null) week.dayGoals(start, today, doneBefore, doneToday) else null
+                val goals = if (start != null) week.dayGoals(start, today, total - doneToday, doneToday) else null
                 if (start != null && goals != null && strip != 2) {
                     val done = LongArray(7)
                     entries.filter { !it.isRunning }.forEach {
