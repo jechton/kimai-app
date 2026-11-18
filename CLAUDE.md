@@ -15,6 +15,7 @@ Tick: an Android client for [Kimai](https://www.kimai.org) (Kotlin, Jetpack Comp
 - QR-code sign-in (scan or upload a screenshot of Kimai's login QR code)
 - Offline queue for all timer changes
 - Times follow the system 12/24h setting, overridable in the top-right menu (Time format)
+- Optional update check (default on): `data/Updater.kt` reads the latest GitHub Release; a banner on the main screen and a Settings hint lead to `ui/UpdateDialog.kt`, which downloads the APK and opens Android's installer via a FileProvider
 - Picks up timers started elsewhere (web UI) every 15 minutes in the background, and on app open
 
 ## Build and run

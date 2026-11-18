@@ -74,6 +74,21 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("hide_description", false)
         set(v) = sp.edit { putBoolean("hide_description", v) }
 
+    /** Look for a newer release on GitHub when the app opens. On by default. */
+    var updateCheck: Boolean
+        get() = sp.getBoolean("update_check", true)
+        set(v) = sp.edit { putBoolean("update_check", v) }
+
+    /** Version the user closed the banner or dialog for, so we do not nag about it on every open. */
+    var dismissedUpdate: String
+        get() = sp.getString("dismissed_update", "").orEmpty()
+        set(v) = sp.edit { putString("dismissed_update", v) }
+
+    /** Epoch millis of the last automatic check, to check at most once every 12 hours. */
+    var lastUpdateCheck: Long
+        get() = sp.getLong("last_update_check", 0L)
+        set(v) = sp.edit { putLong("last_update_check", v) }
+
     /** Minutes-ago choices on the Start form, at most 3 so they fit on small screens. */
     var startPresets: List<Int>
         get() =

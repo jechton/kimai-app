@@ -72,6 +72,18 @@ fun SettingsScreen(
                 },
                 modifier = Modifier.clickable { vm.setHideDescription(!ui.hideDescription) },
             )
+            ListItem(
+                headlineContent = { Text("Check for updates") },
+                supportingContent = { Text("On open, looks for a new Tick release on GitHub") },
+                trailingContent = {
+                    Switch(checked = ui.updateCheck, onCheckedChange = vm::setUpdateCheck)
+                },
+                modifier = Modifier.clickable { vm.setUpdateCheck(!ui.updateCheck) },
+            )
+            SettingRow(
+                "Check now",
+                ui.update?.let { "${it.version} available" },
+            ) { if (ui.update != null) vm.openUpdate() else vm.checkForUpdate(manual = true) }
             HorizontalDivider()
             TextButton(onClick = vm::logout, modifier = Modifier.padding(horizontal = 8.dp)) {
                 Text("Sign out", color = MaterialTheme.colorScheme.error)

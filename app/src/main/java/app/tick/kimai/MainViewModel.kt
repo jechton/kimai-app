@@ -10,6 +10,8 @@ import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.Project
 import app.tick.kimai.data.TeamRow
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.UpdateInfo
+import app.tick.kimai.data.Updater
 import app.tick.kimai.data.User
 import app.tick.kimai.data.WeekTotals
 import kotlinx.coroutines.CancellationException
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import java.net.UnknownHostException
 import java.time.LocalDate
 
@@ -55,6 +58,18 @@ data class UiState(
     val teamOffset: Int = 0,
     /** Whose week the list shows, read-only. Null is the signed-in user. */
     val viewing: User? = null,
+    val updateCheck: Boolean = true,
+    /** The newest release found, if newer than this build. Kept after dismissing so Settings can show it. */
+    val update: UpdateInfo? = null,
+    /** The update dialog is open. */
+    val showUpdate: Boolean = false,
+    /** The banner on the main screen is visible. */
+    val updateBanner: Boolean = false,
+    val updateDownloading: Boolean = false,
+    /** Set when the APK is downloaded and ready to hand to Android's installer. */
+    val updateFile: File? = null,
+    /** Shown after a manual check that found nothing. */
+    val upToDate: Boolean = false,
 )
 
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -78,6 +93,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 startPresets = prefs.startPresets,
                 hideDescription = prefs.hideDescription,
                 canViewOthers = prefs.canViewOthers,
+                updateCheck = prefs.updateCheck,
             ),
         )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
@@ -334,6 +350,73 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         prefs.timeMode = mode
         _ui.update { it.copy(timeMode = mode) }
         viewModelScope.launch { repo.refreshSurfaces(prefs.timerState()) }
+    }
+
+    fun setUpdateCheck(on: Boolean) {
+        prefs.updateCheck = on
+        _ui.update { it.copy(updateCheck = on, updateBanner = on && it.updateBanner) }
+        if (on) checkForUpdate(manual = false)
+    }
+
+    /** Automatic checks run at most every 12 hours and raise a banner only once per version. A manual check always asks. */
+    fun checkForUpdate(manual: Boolean) {
+        val now = System.currentTimeMillis()
+        if (!manual && (!prefs.updateCheck || now - prefs.lastUpdateCheck < 12 * 3_600_000L)) return
+        viewModelScope.launch {
+            try {
+                val current = app.packageManager.getPackageInfo(app.packageName, 0).versionName.orEmpty()
+                val found = Updater.check(current)
+                // Rest for 12 hours only when there is nothing to show. A pending update is re-checked on each open so the banner comes back.
+                if (found == null || found.version == prefs.dismissedUpdate) prefs.lastUpdateCheck = now
+                _ui.update {
+                    it.copy(
+                        update = found,
+                        // Automatic finds only raise the banner; a manual check opens the dialog.
+                        showUpdate = manual && found != null,
+                        updateBanner = !manual && found != null && found.version != prefs.dismissedUpdate,
+                        upToDate = manual && found == null,
+                        updateFile = null,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (manual) _ui.update { it.copy(error = "Couldn't check for updates") }
+            }
+        }
+    }
+
+    /** Closing the banner (X) means no more banner for this version. */
+    fun dismissUpdate() {
+        _ui.value.update?.let { prefs.dismissedUpdate = it.version }
+        _ui.update { it.copy(showUpdate = false, updateBanner = false, updateFile = null) }
+    }
+
+    /** Closes the dialog only. The banner and Settings hint stay, so the update is still one tap away. */
+    fun closeUpdate() = _ui.update { it.copy(showUpdate = false, updateFile = null) }
+
+    fun openUpdate() = _ui.update { it.copy(showUpdate = true) }
+
+    fun clearUpdateFile() = _ui.update { it.copy(updateFile = null) }
+
+    fun clearUpToDate() = _ui.update { it.copy(upToDate = false) }
+
+    fun downloadUpdate() {
+        val info = _ui.value.update ?: return
+        if (_ui.value.updateDownloading) return
+        viewModelScope.launch {
+            _ui.update { it.copy(updateDownloading = true) }
+            try {
+                val file = Updater.download(app, info)
+                _ui.update { it.copy(updateFile = file) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _ui.update { it.copy(error = "Couldn't download the update") }
+            } finally {
+                _ui.update { it.copy(updateDownloading = false) }
+            }
+        }
     }
 
     fun setHideDescription(hide: Boolean) {

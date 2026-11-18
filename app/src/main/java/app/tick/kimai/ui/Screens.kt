@@ -11,6 +11,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
@@ -138,6 +140,7 @@ import java.util.Locale
 fun TickRoot(vm: MainViewModel) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     if (ui.loggedIn) HomeScreen(vm, ui) else LoginScreen(vm, ui)
+    UpdateDialog(vm, ui)
 }
 
 // Small helpers shared by several screens
@@ -356,6 +359,7 @@ private fun HomeScreen(
 
     LifecycleResumeEffect(Unit) {
         vm.refresh()
+        vm.checkForUpdate(manual = false)
         onPauseOrDispose { }
     }
 
@@ -420,6 +424,32 @@ private fun HomeScreen(
         ) { padding ->
             Column(modifier = Modifier.fillMaxSize().padding(padding)) {
                 if (ui.busy && !ui.refreshing) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                if (ui.updateBanner && ui.update != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .clickable(onClick = vm::openUpdate)
+                                .padding(start = 16.dp),
+                    ) {
+                        Text(
+                            "Update available: ${ui.update?.version}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = vm::openUpdate) { Text("Update") }
+                        IconButton(onClick = vm::dismissUpdate) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+                }
                 if (ui.pending > 0) {
                     Text(
                         if (ui.pending == 1) "1 change waiting to sync" else "${ui.pending} changes waiting to sync",

@@ -36,6 +36,7 @@ Plain `http://` servers are blocked by Android's default cleartext policy. Use h
 ## Notes
 
 - The ongoing notification runs in a foreground service so it can't be swiped away. If Android refuses to start the service from the background, it falls back to a plain notification. If that is swiped away it is re-posted immediately, and promoted to the service on the next sync or app open.
+- Update check (Settings, on by default): when the app opens, at most every 12 hours, it asks GitHub for the latest release. If it is newer, a banner appears; tap it for a dialog that offers Install (it downloads, then opens Android's installer) and a link to the release page (Android asks you to allow installs from Tick the first time). Turn it off in Settings; the only request it makes is to `api.github.com`.
 
 ## Build on NixOS
 
