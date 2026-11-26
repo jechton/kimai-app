@@ -2,6 +2,7 @@ package app.tick.kimai.util
 
 import android.content.Context
 import android.text.format.DateFormat
+import app.tick.kimai.R
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -81,12 +82,21 @@ object Fmt {
         zone: ZoneId = ZoneId.systemDefault(),
     ): LocalDate = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
 
-    fun dayLabel(d: LocalDate): String {
+    fun dayLabel(
+        context: Context,
+        d: LocalDate,
+    ): String {
         val today = LocalDate.now()
         return when (d) {
-            today -> "Today"
-            today.minusDays(1) -> "Yesterday"
-            else -> d.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault()))
+            today -> context.getString(R.string.today)
+            today.minusDays(1) -> context.getString(R.string.yesterday)
+            else ->
+                d.format(
+                    DateTimeFormatter.ofPattern(
+                        DateFormat.getBestDateTimePattern(Locale.getDefault(), "EEEEMMMd"),
+                        Locale.getDefault(),
+                    ),
+                )
         }
     }
 }

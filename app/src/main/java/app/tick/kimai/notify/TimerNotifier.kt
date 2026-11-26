@@ -51,7 +51,11 @@ object TimerNotifier {
     ): Notification {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(
+                CHANNEL,
+                context.getString(R.string.notification_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
                 setShowBadge(false)
             },
         )
@@ -84,7 +88,7 @@ object TimerNotifier {
 
         return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_timer)
-            .setContentTitle(s.project.ifBlank { "Timer running" })
+            .setContentTitle(s.project.ifBlank { context.getString(R.string.timer_running) })
             .setContentText(detail)
             .setUsesChronometer(true)
             .setShowWhen(true)
@@ -93,7 +97,7 @@ object TimerNotifier {
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .setDeleteIntent(dismissed)
-            .addAction(0, "Stop", stop)
+            .addAction(0, context.getString(R.string.stop), stop)
             .build()
     }
 }

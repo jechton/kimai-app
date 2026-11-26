@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -41,6 +42,7 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
+import app.tick.kimai.R
 import app.tick.kimai.ui.TickTheme
 import kotlinx.coroutines.launch
 
@@ -145,12 +147,12 @@ private fun ConfigScreen(
     var tapToggle by remember { mutableStateOf(initial.tapToggle) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Widget settings") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.widget_settings)) }) },
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
         ) {
-            Text("Background opacity: ${(opacity * 100).toInt()}%")
+            Text(stringResource(R.string.widget_opacity, (opacity * 100).toInt()))
             Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 0f..1f, steps = 9)
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -191,7 +193,7 @@ private fun ConfigScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
         }
     }

@@ -97,6 +97,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -109,6 +111,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tick.kimai.MainViewModel
+import app.tick.kimai.R
 import app.tick.kimai.UiState
 import app.tick.kimai.data.Entry
 import app.tick.kimai.data.KimaiQr
@@ -177,12 +180,14 @@ private fun LoginScreen(
     var username by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+    val notQr = stringResource(R.string.login_qr_invalid)
+    val scanPrompt = stringResource(R.string.login_scan_prompt)
     val scope = rememberCoroutineScope()
 
     fun useQr(raw: String?) {
         val qr = raw?.let { KimaiQr.parse(it) }
         if (qr == null) {
-            scope.launch { snackbar.showSnackbar("That's not a Kimai login QR code") }
+            scope.launch { snackbar.showSnackbar(notQr) }
         } else {
             vm.login(qr.url, qr.token, "")
         }
@@ -209,7 +214,7 @@ private fun LoginScreen(
         ) {
             Text("Tick", style = MaterialTheme.typography.displayMedium)
             Text(
-                "Sign in to your Kimai server with an API token from your Kimai profile.",
+                stringResource(R.string.login_intro),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -219,7 +224,7 @@ private fun LoginScreen(
                         scanQr.launch(
                             ScanOptions()
                                 .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                .setPrompt("Scan Kimai login QR code")
+                                .setPrompt(scanPrompt)
                                 .setBeepEnabled(false),
                         )
                     },
@@ -227,7 +232,7 @@ private fun LoginScreen(
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Scan QR")
+                    Text(stringResource(R.string.login_scan_qr))
                 }
                 OutlinedButton(
                     onClick = { pickQrImage.launch("image/*") },
@@ -235,18 +240,18 @@ private fun LoginScreen(
                 ) {
                     Icon(Icons.Default.Image, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Upload QR")
+                    Text(stringResource(R.string.login_upload_qr))
                 }
             }
             Text(
-                "or enter your details manually",
+                stringResource(R.string.login_manual),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
-                label = { Text("Server URL") },
+                label = { Text(stringResource(R.string.login_server_url)) },
                 placeholder = { Text("https://time.example.com") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -255,7 +260,7 @@ private fun LoginScreen(
             OutlinedTextField(
                 value = token,
                 onValueChange = { token = it },
-                label = { Text("API token") },
+                label = { Text(stringResource(R.string.login_api_token)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -264,8 +269,8 @@ private fun LoginScreen(
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text("Username (old servers only)") },
-                supportingText = { Text("Leave empty unless your server uses an API password") },
+                label = { Text(stringResource(R.string.login_username)) },
+                supportingText = { Text(stringResource(R.string.login_username_hint)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -274,7 +279,7 @@ private fun LoginScreen(
                 enabled = url.isNotBlank() && token.isNotBlank() && !ui.busy,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (ui.busy) "Connecting..." else "Connect")
+                Text(stringResource(if (ui.busy) R.string.login_connecting else R.string.login_connect))
             }
         }
     }
@@ -335,11 +340,10 @@ private fun HomeScreen(
     if (showBatteryDialog) {
         AlertDialog(
             onDismissRequest = ::closeBatteryDialog,
-            title = { Text("Keep background sync reliable") },
+            title = { Text(stringResource(R.string.battery_title)) },
             text = {
                 Text(
-                    "Android's battery optimization can delay or skip the background check for " +
-                        "timers started elsewhere. Exempting Tick keeps the notification and widget in sync.",
+                    stringResource(R.string.battery_text),
                 )
             },
             confirmButton = {
@@ -351,9 +355,9 @@ private fun HomeScreen(
                             Uri.parse("package:${context.packageName}"),
                         ),
                     )
-                }) { Text("Turn off") }
+                }) { Text(stringResource(R.string.battery_turn_off)) }
             },
-            dismissButton = { TextButton(onClick = ::closeBatteryDialog) { Text("Not now") } },
+            dismissButton = { TextButton(onClick = ::closeBatteryDialog) { Text(stringResource(R.string.not_now)) } },
         )
     }
 
@@ -568,15 +572,15 @@ private fun HomeScreen(
     deleting?.let { entry ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Delete entry?") },
-            text = { Text("${entry.label} (${Fmt.elapsed(entry.seconds)}) will be removed from Kimai.") },
+            title = { Text(stringResource(R.string.delete_entry_title)) },
+            text = { Text(stringResource(R.string.delete_entry_message, entry.label, Fmt.elapsed(entry.seconds))) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.delete(entry)
                     deleting = null
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -653,13 +657,13 @@ private fun HomeScreen(
     if (showTimeDialog) {
         AlertDialog(
             onDismissRequest = { showTimeDialog = false },
-            title = { Text("Time format") },
+            title = { Text(stringResource(R.string.time_format)) },
             text = {
                 Column {
                     listOf(
-                        TimeMode.SYSTEM to "Follow system",
-                        TimeMode.H12 to "12-hour",
-                        TimeMode.H24 to "24-hour",
+                        TimeMode.SYSTEM to stringResource(R.string.time_follow_system),
+                        TimeMode.H12 to stringResource(R.string.time_12h),
+                        TimeMode.H24 to stringResource(R.string.time_24h),
                     ).forEach { (mode, label) ->
                         Row(
                             modifier =
@@ -683,7 +687,11 @@ private fun HomeScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showTimeDialog = false }) { Text("Close") } },
+            confirmButton = {
+                TextButton(
+                    onClick = { showTimeDialog = false },
+                ) { Text(stringResource(R.string.close)) }
+            },
         )
     }
 }
@@ -692,7 +700,7 @@ private fun HomeScreen(
 internal fun weekStartLabel(firstWeekday: String): String {
     val day = runCatching { DayOfWeek.valueOf(firstWeekday.uppercase()) }.getOrNull()
     val name = (day ?: DayOfWeek.MONDAY).getDisplayName(TextStyle.FULL, Locale.getDefault())
-    return if (day != null) "Week starts on $name (from Kimai)" else "Week starts on $name (default)"
+    return stringResource(if (day != null) R.string.week_starts_kimai else R.string.week_starts_default, name)
 }
 
 @Composable
@@ -709,7 +717,7 @@ private fun WeekTargetDialog(
     var days by remember { mutableIntStateOf(currentDays) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Weekly target") },
+        title = { Text(stringResource(R.string.weekly_target)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -748,7 +756,7 @@ private fun WeekTargetDialog(
         confirmButton = {
             TextButton(onClick = { onSave(parseDecimal(text), days) }) { Text("Save") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -761,13 +769,13 @@ private fun PresetsDialog(
     var text by remember { mutableStateOf(current.joinToString(", ")) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Start presets") },
+        title = { Text(stringResource(R.string.start_presets)) },
         text = {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                label = { Text("Minutes ago") },
-                supportingText = { Text("Up to 3 numbers, e.g. 5, 15, 30. Empty resets.") },
+                label = { Text(stringResource(R.string.minutes_ago)) },
+                supportingText = { Text(stringResource(R.string.presets_hint)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -781,9 +789,9 @@ private fun PresetsDialog(
                         ).mapNotNull { it.toIntOrNull() }.filter { it > 0 }.distinct().sorted().take(3),
                     )
                 },
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -798,14 +806,14 @@ private fun PayDialog(
     var taxText by remember { mutableStateOf(if (currentTaxPercent > 0) currentTaxPercent.toString() else "") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pay rate & tax") },
+        title = { Text(stringResource(R.string.pay_rate_tax)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = rateText,
                     onValueChange = { rateText = it },
-                    label = { Text("Hourly rate") },
-                    supportingText = { Text("Leave empty to use Kimai's own rate for each entry") },
+                    label = { Text(stringResource(R.string.hourly_rate)) },
+                    supportingText = { Text(stringResource(R.string.hourly_rate_hint)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
@@ -814,8 +822,8 @@ private fun PayDialog(
                 OutlinedTextField(
                     value = taxText,
                     onValueChange = { taxText = it },
-                    label = { Text("Tax withheld (%)") },
-                    supportingText = { Text("Leave empty for none") },
+                    label = { Text(stringResource(R.string.tax_withheld)) },
+                    supportingText = { Text(stringResource(R.string.tax_hint)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
@@ -823,9 +831,11 @@ private fun PayDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(parseDecimal(rateText), parseDecimal(taxText)) }) { Text("Save") }
+            TextButton(
+                onClick = { onSave(parseDecimal(rateText), parseDecimal(taxText)) },
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -937,13 +947,17 @@ private fun WeekSummary(
     val total = if (timer != null) week.total(timer, now) else week.doneSeconds
     val title =
         when (offset) {
-            0 -> "This week"
-            -1 -> "Last week"
-            else -> "${-offset} weeks ago"
+            0 -> stringResource(R.string.this_week)
+            -1 -> stringResource(R.string.last_week)
+            else -> pluralStringResource(R.plurals.weeks_ago, -offset, -offset)
         }
     val range =
         start?.let {
-            val f = DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
+            val f =
+                DateTimeFormatter.ofPattern(
+                    DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMd"),
+                    Locale.getDefault(),
+                )
             "${f.format(it)} \u2013 ${f.format(it.plusDays(6))}"
         }
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -953,7 +967,7 @@ private fun WeekSummary(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             IconButton(onClick = { onShow(offset - 1) }) {
-                Icon(Icons.Default.ChevronLeft, contentDescription = "Previous week")
+                Icon(Icons.Default.ChevronLeft, contentDescription = stringResource(R.string.previous_week))
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
@@ -966,12 +980,12 @@ private fun WeekSummary(
                 }
             }
             IconButton(onClick = { onShow(offset + 1) }, enabled = offset < 0) {
-                Icon(Icons.Default.ChevronRight, contentDescription = "Next week")
+                Icon(Icons.Default.ChevronRight, contentDescription = stringResource(R.string.next_week))
             }
         }
         val text =
             if (week.targetSeconds > 0) {
-                "${Fmt.hoursMinutes(total)} of ${Fmt.hoursMinutes(week.targetSeconds)}"
+                stringResource(R.string.week_progress, Fmt.hoursMinutes(total), Fmt.hoursMinutes(week.targetSeconds))
             } else {
                 Fmt.hoursMinutes(total)
             }
@@ -1114,7 +1128,7 @@ private fun TimerCard(
                     Text(t.project, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                     ui.running?.let { entry ->
                         IconButton(onClick = { onEdit(entry) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit running entry")
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_running_entry))
                         }
                     }
                 }
@@ -1125,7 +1139,7 @@ private fun TimerCard(
                     style = MaterialTheme.typography.displayMedium,
                 )
                 Text(
-                    "Started ${Fmt.clock(context, t.beginMillis, ui.timeMode)}",
+                    stringResource(R.string.started_at, Fmt.clock(context, t.beginMillis, ui.timeMode)),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Button(
@@ -1135,7 +1149,7 @@ private fun TimerCard(
                 ) {
                     Icon(Icons.Default.Stop, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Stop")
+                    Text(stringResource(R.string.stop))
                 }
             }
         }
@@ -1151,7 +1165,7 @@ private fun TimerCard(
                     OutlinedTextField(
                         value = ui.description,
                         onValueChange = { vm.setDescription(it) },
-                        label = { Text("Description (optional)") },
+                        label = { Text(stringResource(R.string.description_optional)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -1164,7 +1178,7 @@ private fun TimerCard(
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Start")
+                        Text(stringResource(R.string.start))
                     }
                     // One tap starts the timer that many minutes in the past.
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1174,7 +1188,7 @@ private fun TimerCard(
                                 enabled = canStart,
                                 contentPadding = PaddingValues(horizontal = 4.dp),
                                 modifier = Modifier.weight(1f),
-                            ) { Text("${min}m ago", maxLines = 1, softWrap = false) }
+                            ) { Text(stringResource(R.string.minutes_ago_short, min), maxLines = 1, softWrap = false) }
                         }
                     }
                 }
@@ -1189,14 +1203,14 @@ private fun ProjectActivityPickers(
     ui: UiState,
 ) {
     Picker(
-        label = "Project",
+        label = stringResource(R.string.project),
         items = ui.projects,
         selected = ui.selectedProject,
         text = { it.display },
         onSelect = { vm.selectProject(it) },
     )
     Picker(
-        label = "Activity",
+        label = stringResource(R.string.activity),
         items = ui.activities,
         selected = ui.selectedActivity,
         text = { it.name },
@@ -1264,14 +1278,14 @@ private fun EditEntryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit entry") },
+        title = { Text(stringResource(R.string.edit_entry)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (showDescription) {
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
-                        label = { Text("Description") },
+                        label = { Text(stringResource(R.string.description)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -1290,9 +1304,9 @@ private fun EditEntryDialog(
             TextButton(
                 enabled = valid,
                 onClick = { onSave(description, begin.toMillis(zone), if (running) null else end.toMillis(zone)) },
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -1317,7 +1331,7 @@ private fun StartEndFields(
     Box {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             DateTimeRow(
-                label = "Start",
+                label = stringResource(R.string.start),
                 value = begin,
                 zone = zone,
                 mode = mode,
@@ -1326,7 +1340,7 @@ private fun StartEndFields(
             )
             if (showEnd) {
                 DateTimeRow(
-                    label = "End",
+                    label = stringResource(R.string.end),
                     value = end,
                     zone = zone,
                     mode = mode,
@@ -1335,7 +1349,7 @@ private fun StartEndFields(
                 )
                 if (!end.isAfter(begin)) {
                     Text(
-                        "End must be after start",
+                        stringResource(R.string.end_after_start),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -1387,9 +1401,9 @@ private fun DateOrTimePicker(
                     } else {
                         onDismiss()
                     }
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         ) {
             DatePicker(state = state)
         }
@@ -1406,9 +1420,11 @@ private fun DateOrTimePicker(
             modifier = Modifier.padding(16.dp),
             text = { TimePicker(state = state) },
             confirmButton = {
-                TextButton(onClick = { onPick(current.withHour(state.hour).withMinute(state.minute)) }) { Text("OK") }
+                TextButton(onClick = {
+                    onPick(current.withHour(state.hour).withMinute(state.minute))
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -1467,7 +1483,7 @@ private fun AddEntryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add entry") },
+        title = { Text(stringResource(R.string.add_entry)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ProjectActivityPickers(vm, ui)
@@ -1475,7 +1491,7 @@ private fun AddEntryDialog(
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
-                        label = { Text("Description (optional)") },
+                        label = { Text(stringResource(R.string.description_optional)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -1498,9 +1514,9 @@ private fun AddEntryDialog(
                     val activity = ui.selectedActivity!!
                     onSave(project.id, activity.id, description, begin.toMillis(zone), end.toMillis(zone))
                 },
-            ) { Text("Add") }
+            ) { Text(stringResource(R.string.add)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -1532,7 +1548,7 @@ private fun EntryRow(
             overlineContent = { Text("$begin – $end") },
             headlineContent = {
                 Text(
-                    entry.project.name ?: "Project ${entry.project.id}",
+                    entry.project.name ?: stringResource(R.string.project_fallback, entry.project.id),
                     maxLines = 1,
                     softWrap = false,
                     overflow = TextOverflow.Ellipsis,
