@@ -1,7 +1,5 @@
 package app.tick.kimai.data
 
-import android.content.Context
-import app.tick.kimai.R
 import app.tick.kimai.util.Fmt
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -183,15 +181,29 @@ data class PacePlan(
 
 enum class PaceState { MET, MISSED, PENDING }
 
-/** The on-pace line: its text and state, shared by the app and the widget. */
-data class PaceStatus(val message: String, val state: PaceState)
+/** What the on-pace line says. Text lives in the UI (`Fmt.paceText`), so this stays plain data. */
+sealed interface PaceMessage {
+    data object TargetReached : PaceMessage
+
+    data class Short(val seconds: Long) : PaceMessage
+
+    data class Behind(val seconds: Long) : PaceMessage
+
+    data class MoreToday(val seconds: Long) : PaceMessage
+
+    data class Ahead(val seconds: Long) : PaceMessage
+
+    data object OnPace : PaceMessage
+}
+
+/** The on-pace line: its message and state, shared by the app and the widget. */
+data class PaceStatus(val message: PaceMessage, val state: PaceState)
 
 /**
  * [weekLeft] is the target minus everything tracked this week, [doneToday] what was tracked today.
  * Under a minute either way counts as on pace, since the text only shows whole minutes.
  */
 fun PacePlan.status(
-    context: Context,
     weekLeft: Long,
     doneToday: Long,
 ): PaceStatus {
@@ -202,12 +214,12 @@ fun PacePlan.status(
     val stillBehind = weekLeft >= 60 && missedBefore >= 60 && behind >= 60
     val message =
         when {
-            weekLeft < 60 -> context.getString(R.string.pace_target_reached)
-            !hasWorkLeft -> context.getString(R.string.pace_short, Fmt.hoursMinutes(weekLeft))
-            stillBehind -> context.getString(R.string.pace_behind, Fmt.hoursMinutes(behind))
-            todayLeft >= 60 -> context.getString(R.string.pace_more_today, Fmt.hoursMinutes(todayLeft))
-            todayLeft <= -60 -> context.getString(R.string.pace_ahead, Fmt.hoursMinutes(-todayLeft))
-            else -> context.getString(R.string.pace_on)
+            weekLeft < 60 -> PaceMessage.TargetReached
+            !hasWorkLeft -> PaceMessage.Short(weekLeft)
+            stillBehind -> PaceMessage.Behind(behind)
+            todayLeft >= 60 -> PaceMessage.MoreToday(todayLeft)
+            todayLeft <= -60 -> PaceMessage.Ahead(-todayLeft)
+            else -> PaceMessage.OnPace
         }
     // Green once today's goal is met, neutral while today's work is still to do, and red when earlier days
     // were missed and today's catch-up isn't done (or no days are left).

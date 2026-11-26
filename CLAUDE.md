@@ -30,7 +30,7 @@ nix develop                 # JDK 17 + Android SDK 35 + adb, aapt2 override set
 
 With direnv: `direnv allow` instead of `nix develop`. First build needs network (downloads Gradle 8.10.2 and Maven deps).
 
-There is no test suite in this repo currently.
+Unit tests (JUnit, pure JVM) live in `app/src/test`; run `./gradlew testDebugUnitTest`. They cover the pace logic in `data/Models.kt`.
 
 ### NixOS specifics
 

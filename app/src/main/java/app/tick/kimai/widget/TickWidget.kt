@@ -292,7 +292,7 @@ private fun WidgetContent(
                     PaceState.PENDING -> GlanceTheme.colors.onSurfaceVariant
                 }
             Text(
-                text = pace.message,
+                text = Fmt.paceText(context, pace.message),
                 maxLines = 1,
                 style = TextStyle(color = tint, fontSize = 12.sp, fontWeight = FontWeight.Medium),
                 modifier = GlanceModifier.padding(top = 4.dp),
@@ -422,7 +422,7 @@ private fun weekInfo(
     val doneToday = done[idx]
     val plan = totals.pacePlan(detail.start, today, total - doneToday, doneToday)
     val goals = totals.dayGoals(detail.start, today, total - doneToday, doneToday)
-    val pace = plan?.status(context, totals.targetSeconds - total, doneToday)
+    val pace = plan?.status(totals.targetSeconds - total, doneToday)
     val days =
         goals?.mapIndexed { i, goal ->
             val met = goal > 0 && done[i] >= goal - 59

@@ -3,6 +3,7 @@ package app.tick.kimai.util
 import android.content.Context
 import android.text.format.DateFormat
 import app.tick.kimai.R
+import app.tick.kimai.data.PaceMessage
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -70,6 +71,19 @@ object Fmt {
         val m = seconds / 60
         return if (m % 60 == 0L) "${m / 60}h" else "${m / 60}h%02dm".format(m % 60)
     }
+
+    fun paceText(
+        context: Context,
+        message: PaceMessage,
+    ): String =
+        when (message) {
+            PaceMessage.TargetReached -> context.getString(R.string.pace_target_reached)
+            is PaceMessage.Short -> context.getString(R.string.pace_short, hoursMinutes(message.seconds))
+            is PaceMessage.Behind -> context.getString(R.string.pace_behind, hoursMinutes(message.seconds))
+            is PaceMessage.MoreToday -> context.getString(R.string.pace_more_today, hoursMinutes(message.seconds))
+            is PaceMessage.Ahead -> context.getString(R.string.pace_ahead, hoursMinutes(message.seconds))
+            PaceMessage.OnPace -> context.getString(R.string.pace_on)
+        }
 
     /** Compact hours for day headers and the widget, e.g. 7h 45m. */
     fun hoursMinutes(seconds: Long): String {

@@ -1055,8 +1055,8 @@ private fun WeekSummary(
             val plan = if (start != null) week.pacePlan(start, today, total - doneToday, doneToday) else null
             if (plan != null) {
                 val weekLeft = week.targetSeconds - total
-                val pace = plan.status(context, weekLeft, doneToday)
-                val message = pace.message
+                val pace = plan.status(weekLeft, doneToday)
+                val message = Fmt.paceText(context, pace.message)
                 val tint =
                     when (pace.state) {
                         PaceState.MISSED -> MaterialTheme.colorScheme.error
