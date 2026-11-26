@@ -10,8 +10,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import app.tick.kimai.MainActivity
 import app.tick.kimai.R
+import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
 import app.tick.kimai.util.Fmt
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 object TimerNotifier {
     const val ACTION_STOP = "app.tick.kimai.action.STOP"
@@ -86,26 +89,58 @@ object TimerNotifier {
                 flags,
             )
 
-        val detail = listOf(s.activity, s.description).filter { it.isNotBlank() }.joinToString(" · ")
+        val elapsed = Fmt.elapsed(((System.currentTimeMillis() - s.beginMillis) / 1000).coerceAtLeast(0))
+        val detail =
+            listOf(s.activity, s.description).filter { it.isNotBlank() }.joinToString(" · ")
+                .ifBlank { context.getString(R.string.timer_running) }
 
         return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_timer)
-            .setContentTitle(s.project.ifBlank { context.getString(R.string.timer_running) })
+            .setContentTitle("${s.project.ifBlank { context.getString(R.string.timer_running) }} · $elapsed")
             .setContentText(detail)
-            .setShowWhen(true)
+            .setShowWhen(false)
             .setWhen(s.beginMillis)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            // Live Update (Android 16, Samsung Now Bar). The chip shows this text, which is only
-            // as fresh as the last sync; a system chronometer jams against the title on One UI.
+            // Live Update (Android 16, Samsung Now Bar). The chip shows this text; TimerService
+            // re-posts every second. A system chronometer jams against the title on One UI.
             .setRequestPromotedOngoing(true)
-            .setShortCriticalText(Fmt.elapsed(((System.currentTimeMillis() - s.beginMillis) / 1000).coerceAtLeast(0)))
-            .setStyle(NotificationCompat.ProgressStyle().setProgressIndeterminate(true))
+            .setShortCriticalText(elapsed)
+            .setStyle(progressStyle(context, s))
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .setDeleteIntent(dismissed)
             .addAction(0, context.getString(R.string.stop), stop)
             .build()
+    }
+
+    /**
+     * The progress bar: one segment per work day of the week's target, filled by the week's total
+     * (running timer included), with a marker where you should be by the end of today. Without a
+     * target or a current-week pace it is an indeterminate bar.
+     */
+    private fun progressStyle(
+        context: Context,
+        s: TimerState,
+    ): NotificationCompat.ProgressStyle {
+        val style = NotificationCompat.ProgressStyle()
+        val prefs = Prefs(context)
+        val totals = prefs.weekTotals()
+        val weights = totals?.paceWeights.orEmpty()
+        val sum = weights.sum()
+        if (totals == null || totals.targetSeconds <= 0 || weights.size != 7 || sum <= 0) {
+            return style.setProgressIndeterminate(true)
+        }
+        val segments = weights.filter { it > 0 }.map { (totals.targetSeconds * it / sum).toInt().coerceAtLeast(1) }
+        val max = segments.sum()
+        segments.forEach { style.addProgressSegment(NotificationCompat.ProgressStyle.Segment(it)) }
+        style.setProgress(totals.total(s).coerceIn(0, max.toLong()).toInt())
+        val idx = prefs.weekDetail()?.let { ChronoUnit.DAYS.between(it.start, LocalDate.now(totals.zone)).toInt() }
+        if (idx != null && idx in 0..6) {
+            val due = (totals.targetSeconds * weights.take(idx + 1).sum() / sum).toInt()
+            if (due in 1 until max) style.addProgressPoint(NotificationCompat.ProgressStyle.Point(due))
+        }
+        return style.setProgressIndeterminate(false)
     }
 }
