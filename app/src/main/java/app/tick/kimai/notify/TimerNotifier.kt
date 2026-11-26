@@ -12,6 +12,7 @@ import app.tick.kimai.MainActivity
 import app.tick.kimai.R
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.data.status
 import app.tick.kimai.util.Fmt
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -91,7 +92,9 @@ object TimerNotifier {
 
         val elapsed = Fmt.elapsed(((System.currentTimeMillis() - s.beginMillis) / 1000).coerceAtLeast(0))
         val detail =
-            listOf(s.activity, s.description).filter { it.isNotBlank() }.joinToString(" · ")
+            listOfNotNull(paceLine(context, s), s.activity, s.description)
+                .filter { it.isNotBlank() }
+                .joinToString(" · ")
                 .ifBlank { context.getString(R.string.timer_running) }
 
         return NotificationCompat.Builder(context, CHANNEL)
@@ -142,5 +145,24 @@ object TimerNotifier {
             if (due in 1 until max) style.addProgressPoint(NotificationCompat.ProgressStyle.Point(due))
         }
         return style.setProgressIndeterminate(false)
+    }
+
+    /** The on-pace line from the last sync plus the running timer, or null without a week target. */
+    private fun paceLine(
+        context: Context,
+        s: TimerState,
+    ): String? {
+        val prefs = Prefs(context)
+        val totals = prefs.weekTotals()?.takeIf { it.targetSeconds > 0 } ?: return null
+        val detail = prefs.weekDetail() ?: return null
+        val today = LocalDate.now(totals.zone)
+        val idx = ChronoUnit.DAYS.between(detail.start, today).toInt()
+        if (idx !in 0..6) return null
+        val dayStart = today.atStartOfDay(totals.zone).toInstant().toEpochMilli()
+        val runningToday = ((System.currentTimeMillis() - maxOf(s.beginMillis, dayStart)) / 1000).coerceAtLeast(0)
+        val doneToday = detail.perDay[idx] + runningToday
+        val total = totals.total(s)
+        val plan = totals.pacePlan(detail.start, today, total - doneToday, doneToday) ?: return null
+        return Fmt.paceText(context, plan.status(totals.targetSeconds - total, doneToday).message)
     }
 }
