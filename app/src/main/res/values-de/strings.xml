@@ -137,6 +137,7 @@
     <string name="pace_more_today">Noch %1$s heute, um im Plan zu bleiben</string>
     <string name="pace_ahead">%1$s über dem heutigen Ziel</string>
     <string name="pace_on">Im Plan</string>
+    <string name="pace_behind">%1$s hinter dem Plan</string>
     <plurals name="pace_later">
         <item quantity="one">Danach etwa %1$s pro Tag für %2$d weiteren Arbeitstag</item>
         <item quantity="other">Danach etwa %1$s pro Tag für %2$d weitere Arbeitstage</item>

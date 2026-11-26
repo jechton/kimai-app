@@ -204,7 +204,7 @@ fun PacePlan.status(
         when {
             weekLeft < 60 -> context.getString(R.string.pace_target_reached)
             !hasWorkLeft -> context.getString(R.string.pace_short, Fmt.hoursMinutes(weekLeft))
-            stillBehind -> "${Fmt.hoursMinutes(behind)} behind pace"
+            stillBehind -> context.getString(R.string.pace_behind, Fmt.hoursMinutes(behind))
             todayLeft >= 60 -> context.getString(R.string.pace_more_today, Fmt.hoursMinutes(todayLeft))
             todayLeft <= -60 -> context.getString(R.string.pace_ahead, Fmt.hoursMinutes(-todayLeft))
             else -> context.getString(R.string.pace_on)
