@@ -13,8 +13,6 @@ import app.tick.kimai.R
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
 import app.tick.kimai.util.Fmt
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 object TimerNotifier {
     const val ACTION_STOP = "app.tick.kimai.action.STOP"
@@ -89,7 +87,7 @@ object TimerNotifier {
                 flags,
             )
 
-        val elapsed = Fmt.elapsed(((System.currentTimeMillis() - s.beginMillis) / 1000).coerceAtLeast(0))
+        val elapsed = Fmt.hm((System.currentTimeMillis() - s.beginMillis) / 1000)
         val detail =
             listOfNotNull(paceLine(context, s), s.activity, s.description)
                 .filter { it.isNotBlank() }
@@ -106,7 +104,7 @@ object TimerNotifier {
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             // Live Update (Android 16, Samsung Now Bar). The chip shows this text; TimerService
-            // re-posts every second. A system chronometer jams against the title on One UI.
+            // re-posts every minute. A system chronometer jams against the title on One UI.
             .setRequestPromotedOngoing(true)
             .setShortCriticalText(elapsed)
             .setStyle(progressStyle(context, s))
@@ -118,31 +116,19 @@ object TimerNotifier {
     }
 
     /**
-     * The progress bar: one segment per work day of the week's target, filled by the week's total
-     * (running timer included), with a marker where you should be by the end of today. Without a
-     * target or a current-week pace it is an indeterminate bar.
+     * The progress bar: hours worked this week (running timer included) out of the week target.
+     * Without a target it is an indeterminate bar.
      */
     private fun progressStyle(
         context: Context,
         s: TimerState,
     ): NotificationCompat.ProgressStyle {
         val style = NotificationCompat.ProgressStyle()
-        val prefs = Prefs(context)
-        val totals = prefs.weekTotals()
-        val weights = totals?.paceWeights.orEmpty()
-        val sum = weights.sum()
-        if (totals == null || totals.targetSeconds <= 0 || weights.size != 7 || sum <= 0) {
-            return style.setProgressIndeterminate(true)
-        }
-        val segments = weights.filter { it > 0 }.map { (totals.targetSeconds * it / sum).toInt().coerceAtLeast(1) }
-        val max = segments.sum()
-        segments.forEach { style.addProgressSegment(NotificationCompat.ProgressStyle.Segment(it)) }
+        val totals = Prefs(context).weekTotals()
+        if (totals == null || totals.targetSeconds <= 0) return style.setProgressIndeterminate(true)
+        val max = totals.targetSeconds.toInt()
+        style.addProgressSegment(NotificationCompat.ProgressStyle.Segment(max))
         style.setProgress(totals.total(s).coerceIn(0, max.toLong()).toInt())
-        val idx = prefs.weekDetail()?.let { ChronoUnit.DAYS.between(it.start, LocalDate.now(totals.zone)).toInt() }
-        if (idx != null && idx in 0..6) {
-            val due = (totals.targetSeconds * weights.take(idx + 1).sum() / sum).toInt()
-            if (due in 1 until max) style.addProgressPoint(NotificationCompat.ProgressStyle.Point(due))
-        }
         return style.setProgressIndeterminate(false)
     }
 

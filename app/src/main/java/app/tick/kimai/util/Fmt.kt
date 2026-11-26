@@ -66,6 +66,12 @@ object Fmt {
         return "%d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
     }
 
+    /** Hours and minutes, e.g. 1:05, for places where ticking seconds are noise. */
+    fun hm(seconds: Long): String {
+        val m = seconds.coerceAtLeast(0) / 60
+        return "%d:%02d".format(m / 60, m % 60)
+    }
+
     /** For narrow columns: no space, and no minutes on a whole hour, e.g. 8h or 7h45m. */
     fun narrow(seconds: Long): String {
         val m = seconds / 60

@@ -50,7 +50,9 @@ class TimerService : Service() {
         ticker =
             scope.launch {
                 while (isActive) {
-                    delay(1000 - System.currentTimeMillis() % 1000)
+                    // The notification shows minutes, so wake on each new elapsed minute.
+                    val begin = Prefs(this@TimerService).timerState().beginMillis
+                    delay(60_000 - (System.currentTimeMillis() - begin).mod(60_000L))
                     val s = Prefs(this@TimerService).timerState()
                     if (s.running) nm.notify(TimerNotifier.ID, TimerNotifier.build(this@TimerService, s))
                 }
