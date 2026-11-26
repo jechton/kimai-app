@@ -60,11 +60,8 @@ import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.RecentEntry
 import app.tick.kimai.data.TimerState
 import app.tick.kimai.data.WeekTotals
-import app.tick.kimai.data.status
 import app.tick.kimai.util.Fmt
 import java.text.NumberFormat
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 import java.time.format.TextStyle as JTextStyle
 
@@ -399,25 +396,12 @@ private fun weekInfo(
     val pay = gross?.let { NumberFormat.getCurrencyInstance().format(it * (1 - prefs.payTaxPercent / 100.0)) }
 
     val detail = prefs.weekDetail()
-    val zone = totals.zone
-    val today = LocalDate.now(zone)
-    val idx = detail?.let { ChronoUnit.DAYS.between(it.start, today).toInt() }
-    if (detail == null || idx == null || idx !in 0..6 || totals.targetSeconds <= 0) return WeekInfo(null, pay, null)
-
-    val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
-    val runningToday =
-        if (timer.running) {
-            ((System.currentTimeMillis() - maxOf(timer.beginMillis, dayStart)) / 1000).coerceAtLeast(
-                0,
-            )
-        } else {
-            0L
-        }
-    val done = detail.perDay.toMutableList().also { it[idx] += runningToday }
-    val doneToday = done[idx]
-    val plan = totals.pacePlan(detail.start, today, total - doneToday, doneToday)
-    val goals = totals.dayGoals(detail.start, today, total - doneToday, doneToday)
-    val pace = plan?.status(totals.targetSeconds - total, doneToday)
+    val progress =
+        detail?.let { totals.progress(it.start, it.perDay, timer) } ?: return WeekInfo(null, pay, null)
+    val idx = progress.idx
+    val done = progress.done
+    val pace = progress.pace
+    val goals = progress.goals
     val days =
         goals?.mapIndexed { i, goal ->
             val met = goal > 0 && done[i] >= goal - 59

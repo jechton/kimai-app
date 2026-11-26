@@ -12,7 +12,6 @@ import app.tick.kimai.MainActivity
 import app.tick.kimai.R
 import app.tick.kimai.data.Prefs
 import app.tick.kimai.data.TimerState
-import app.tick.kimai.data.status
 import app.tick.kimai.util.Fmt
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -153,16 +152,9 @@ object TimerNotifier {
         s: TimerState,
     ): String? {
         val prefs = Prefs(context)
-        val totals = prefs.weekTotals()?.takeIf { it.targetSeconds > 0 } ?: return null
+        val totals = prefs.weekTotals() ?: return null
         val detail = prefs.weekDetail() ?: return null
-        val today = LocalDate.now(totals.zone)
-        val idx = ChronoUnit.DAYS.between(detail.start, today).toInt()
-        if (idx !in 0..6) return null
-        val dayStart = today.atStartOfDay(totals.zone).toInstant().toEpochMilli()
-        val runningToday = ((System.currentTimeMillis() - maxOf(s.beginMillis, dayStart)) / 1000).coerceAtLeast(0)
-        val doneToday = detail.perDay[idx] + runningToday
-        val total = totals.total(s)
-        val plan = totals.pacePlan(detail.start, today, total - doneToday, doneToday) ?: return null
-        return Fmt.paceText(context, plan.status(totals.targetSeconds - total, doneToday).message)
+        val pace = totals.progress(detail.start, detail.perDay, s)?.pace ?: return null
+        return Fmt.paceText(context, pace.message)
     }
 }

@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -332,7 +333,43 @@ data class WeekTotals(
         timer: TimerState,
         nowMillis: Long = System.currentTimeMillis(),
     ): Long = doneSeconds + if (timer.running) ((nowMillis - timer.beginMillis) / 1000).coerceAtLeast(0) else 0L
+
+    /**
+     * Today's place in the week, shared by the widget and the notification. The running timer is
+     * added to today (only the part after midnight). Null when [start] is not this week or no target.
+     */
+    fun progress(
+        start: LocalDate,
+        perDay: List<Long>,
+        timer: TimerState,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): WeekProgress? {
+        val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        val idx = ChronoUnit.DAYS.between(start, today).toInt()
+        if (idx !in 0..6 || idx >= perDay.size || targetSeconds <= 0) return null
+        val dayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val runningToday =
+            if (timer.running) ((nowMillis - maxOf(timer.beginMillis, dayStart)) / 1000).coerceAtLeast(0) else 0L
+        val done = perDay.toMutableList().also { it[idx] += runningToday }
+        val total = total(timer, nowMillis)
+        val doneToday = done[idx]
+        val plan = pacePlan(start, today, total - doneToday, doneToday)
+        return WeekProgress(
+            idx = idx,
+            done = done,
+            goals = dayGoals(start, today, total - doneToday, doneToday),
+            pace = plan?.status(targetSeconds - total, doneToday),
+        )
+    }
 }
+
+/** See [WeekTotals.progress]: [idx] is today's day in the week, [done] and [goals] are seconds per day. */
+class WeekProgress(
+    val idx: Int,
+    val done: List<Long>,
+    val goals: List<Long>?,
+    val pace: PaceStatus?,
+)
 
 /** One person's finished seconds in a week, for the team overview. */
 data class TeamRow(val user: User, val doneSeconds: Long, val running: Boolean)

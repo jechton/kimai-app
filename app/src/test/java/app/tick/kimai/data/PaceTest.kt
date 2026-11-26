@@ -96,3 +96,23 @@ class PaceTest {
         assertNull(week.dayGoals(monday, monday.plusDays(7), 0))
     }
 }
+
+class WeekProgressTest {
+    private val zone = "UTC"
+    private val totals = week.copy(zoneId = zone)
+    private val noon = wednesday.atTime(12, 0).atZone(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    @Test
+    fun addsOnlyTodaysPartOfARunningTimer() {
+        // Timer began Tuesday 22:00, now Wednesday 12:00: 12h run, 12h of it today.
+        val timer = TimerState(running = true, beginMillis = noon - 14 * H * 1000)
+        val p = totals.progress(monday, List(7) { 0L }, timer, noon)!!
+        assertEquals(2, p.idx)
+        assertEquals(12 * H, p.done[2])
+    }
+
+    @Test
+    fun nullOutsideTheWeek() {
+        assertNull(totals.progress(monday.plusDays(7), List(7) { 0L }, TimerState(), noon))
+    }
+}
