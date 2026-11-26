@@ -60,7 +60,11 @@ app/src/main/java/app/tick/kimai/
   tile/       Quick Settings tile
   work/       15-minute background sync (WorkManager periodic job, registered in TickApp)
   ui/         Compose screens (Screens.kt) and theme
+  watch/      WearSync (pushes state to the watch) + WearService (answers the watch's requests)
+wear/         Wear OS app (separate module, same applicationId)
 ```
+
+**Wear OS.** The `wear` module has no Kimai client of its own. `refreshSurfaces()` also calls `WearSync.push()`, which puts the timer state and week totals in the Data Layer at `/tick/state`; the watch shows that. Taps on the watch go to the phone with `MessageClient.sendRequest` (`/tick/toggle`, `/tick/start`, `/tick/projects`, ...), and `WearService` runs them through `TimerRepository`, so sign-in and the offline queue are shared. The phone advertises the `tick_phone` capability (`res/values/wear.xml`). The Data Layer only connects apps with the same applicationId **and signing key**, so both APKs must come from the same build setup: a debug watch build will not talk to a release phone build.
 
 **`TimerRepository` is the hub.** Every surface (app UI, ongoing notification, home screen widget, Quick Settings tile) reads from and writes through it, never directly from `KimaiApi`. Its `sync()` fetches recent timesheets from Kimai, derives the single `TimerState` (currently-running entry + most recent finished one), persists it to `Prefs`, and calls `refreshSurfaces()` to push that state out to the notification, widget, and tile. All mutating calls (`start`, `stop`, `restart`, `delete`, `updateEntry`, `toggle`) end by re-calling `sync()` so every surface converges on server truth after any action — there's no separate local-state-update path to keep in sync by hand.
 

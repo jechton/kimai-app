@@ -88,6 +88,7 @@ dependencies {
     implementation(libs.glance.material3)
     implementation(libs.androidx.work)
     implementation(libs.zxing.embedded)
+    implementation(libs.play.services.wearable)
 
     testImplementation(libs.junit)
 }

@@ -111,4 +111,6 @@ jobs:
         with:
           tag_name: ${{ steps.release.outputs.tag }}
           body: ${{ steps.notes.outputs.content }}
-          files: app/build/outputs/apk/release/tick-*.apk
+          files: |
+            app/build/outputs/apk/release/tick-*.apk
+            wear/build/outputs/apk/release/tick-wear-*.apk

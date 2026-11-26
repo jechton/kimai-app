@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stop">Stopp</string>
+    <string name="start">Start</string>
+    <string name="start_last">Letzten starten</string>
+    <string name="new_timer">Neuer Timer</string>
+    <string name="project">Projekt</string>
+    <string name="activity">Tätigkeit</string>
+    <string name="today_value">Heute %1$s</string>
+    <string name="week_value">Woche %1$s</string>
+    <string name="since">Seit %1$s</string>
+    <string name="not_running">Läuft nicht</string>
+    <string name="no_phone">Handy nicht erreichbar. Ist Tick dort installiert?</string>
+    <string name="signed_out">Melde dich auf dem Handy in Tick an</string>
+    <plurals name="pending_changes">
+        <item quantity="one">%d Änderung wartet auf Sync</item>
+        <item quantity="other">%d Änderungen warten auf Sync</item>
+    </plurals>
+</resources>

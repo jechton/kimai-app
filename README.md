@@ -34,6 +34,7 @@ Built with Kotlin, Jetpack Compose and Material 3 (dynamic color). English, Germ
 **Everywhere else**
 - Home screen widget: Stop / Start last, recent entries, week total. Long-press it and choose reconfigure for opacity, theme and what to show
 - Quick Settings tile to start and stop
+- Wear OS app: Stop / Start last, start a new timer by project and activity, today and week totals, and a tile. It works through the phone app, so it needs Tick installed and signed in there
 - Picks up timers started elsewhere (web UI) every 15 minutes in the background, and on app open
 - Offline queue: every timer change works without a connection and replays once it's back. A banner shows how many are waiting
 - Times follow your system 12/24h setting, or override it in the top-right menu
@@ -117,4 +118,8 @@ app/src/main/java/app/tick/kimai/
   tile/       Quick Settings tile
   work/       15 minute background sync
   ui/         Compose screens, dialogs and theme
+  watch/      bridge to the Wear OS app
+wear/src/main/java/app/tick/kimai/wear/
+  Phone.kt    talks to the phone app over the Wear Data Layer
+  MainActivity.kt, TimerTile.kt   watch screens and tile
 ```

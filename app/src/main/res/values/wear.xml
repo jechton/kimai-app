@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lets the watch app find the phone that runs Tick (wear module, Phone.kt). -->
+    <string-array name="android_wear_capabilities" translatable="false">
+        <item>tick_phone</item>
+    </string-array>
+</resources>

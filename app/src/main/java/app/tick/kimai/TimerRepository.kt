@@ -17,6 +17,7 @@ import app.tick.kimai.data.WeekTotals
 import app.tick.kimai.notify.TimerNotifier
 import app.tick.kimai.tile.TimerTileService
 import app.tick.kimai.util.Fmt
+import app.tick.kimai.watch.WearSync
 import app.tick.kimai.widget.TickWidget
 import app.tick.kimai.work.SyncWorker
 import kotlinx.coroutines.sync.Mutex
@@ -396,6 +397,7 @@ class TimerRepository(context: Context) {
     ) {
         TimerNotifier.update(app, state)
         runCatching { TickWidget().updateAll(app) }
+        WearSync.push(app, state)
         if (updateTile) {
             runCatching {
                 TileService.requestListeningState(app, ComponentName(app, TimerTileService::class.java))
