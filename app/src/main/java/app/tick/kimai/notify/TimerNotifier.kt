@@ -117,8 +117,8 @@ object TimerNotifier {
     }
 
     /**
-     * The progress bar: one piece per day, sized by that day's goal (or its hours on a day off) and
-     * filled by that day's own hours, running timer included. Indeterminate without a week target.
+     * The progress bar: one piece per day, sized by its goal. Past days are bright when met, today
+     * fills live, and a day off with work gets a piece sized by its hours. Indeterminate without a target.
      */
     private fun progressStyle(
         context: Context,
@@ -130,16 +130,22 @@ object TimerNotifier {
         val detail = prefs.weekDetail()
         val week = totals?.let { t -> detail?.let { t.progress(it.start, it.perDay, s) } }
         val goals = week?.goals ?: return style.setProgressIndeterminate(true)
-        // Each day is its own piece. The bar is always full: worked time keeps the default colour
-        // and the time still to do is drawn faded, because a progress bar can only fill in order.
+        // One piece per day. A bar can only fill in order, so the bar is always full and "not done"
+        // is a faded colour. Past days are all or nothing; only today shows its progress live.
         var max = 0
         goals.forEachIndexed { i, goal ->
             val done = week.done[i]
-            val worked = (if (goal > 0) minOf(done, goal) else done).toInt()
-            val left = (goal - done).coerceAtLeast(0).toInt()
-            if (worked > 0) style.addProgressSegment(NotificationCompat.ProgressStyle.Segment(worked))
-            if (left > 0) style.addProgressSegment(NotificationCompat.ProgressStyle.Segment(left).setColor(TO_DO))
-            max += worked + left
+            val pieces =
+                when {
+                    goal == 0L -> listOf(done to true)
+                    i == week.idx -> listOf(minOf(done, goal) to true, (goal - done).coerceAtLeast(0) to false)
+                    else -> listOf(goal to (i < week.idx && done >= goal - 59))
+                }
+            pieces.filter { it.first > 0 }.forEach { (length, met) ->
+                val segment = NotificationCompat.ProgressStyle.Segment(length.toInt())
+                style.addProgressSegment(if (met) segment else segment.setColor(TO_DO))
+                max += length.toInt()
+            }
         }
         if (max == 0) return style.setProgressIndeterminate(true)
         style.setProgress(max)
