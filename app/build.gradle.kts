@@ -8,9 +8,9 @@ plugins {
 
 android {
     namespace = "app.tick.kimai"
-    compileSdk = 35
+    compileSdk = 36
     // Must match buildToolsVersion in flake.nix
-    buildToolsVersion = "35.0.0"
+    buildToolsVersion = "36.0.0"
 
     // CI sets RELEASE_VERSION from the pushed tag (e.g. "v1.2.3"); local builds fall back below.
     val releaseVersion = System.getenv("RELEASE_VERSION")?.removePrefix("v") ?: "0.1.0"

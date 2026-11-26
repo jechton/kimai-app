@@ -60,7 +60,7 @@ The repo builds with Nix (NixOS-first). Android Studio is optional.
 
 ```sh
 git init && git add -A      # flakes only see tracked files
-nix develop                 # JDK 17 + Android SDK 35 + adb, aapt2 override set
+nix develop                 # JDK 17 + Android SDK 36 + adb, aapt2 override set
 ./gradlew assembleDebug     # APK: app/build/outputs/apk/debug/app-debug.apk
 ./gradlew installDebug      # with a phone or emulator connected over adb
 ```
@@ -68,14 +68,14 @@ nix develop                 # JDK 17 + Android SDK 35 + adb, aapt2 override set
 With direnv: `direnv allow` instead of `nix develop`. direnv also puts `scripts/` on `PATH`, so
 `tick build`, `tick install`, `tick avd` (create the emulator once), `tick emulator` and `tick run` work directly.
 
-The first build downloads Gradle 8.10.2 and the Maven dependencies, so it needs network.
+The first build downloads Gradle 8.11.1 and the Maven dependencies, so it needs network.
 For Android Studio, add `pkgs.android-studio` to `packages` in `flake.nix` and set the SDK path to `$ANDROID_HOME`.
 
 **NixOS and aapt2.** AGP downloads its own `aapt2`, which is dynamically linked and fails on NixOS.
 The dev shell sets `GRADLE_OPTS` to use the Nix one instead. Outside the shell, pass it by hand:
 
 ```sh
-./gradlew assembleDebug -Pandroid.aapt2FromMavenOverride=$ANDROID_HOME/build-tools/35.0.0/aapt2
+./gradlew assembleDebug -Pandroid.aapt2FromMavenOverride=$ANDROID_HOME/build-tools/36.0.0/aapt2
 ```
 
 If `flake.nix` bumps `buildToolsVersion`, change it in `app/build.gradle.kts` too.

@@ -6,22 +6,18 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import app.tick.kimai.MainActivity
 import app.tick.kimai.R
 import app.tick.kimai.data.TimerState
+import app.tick.kimai.util.Fmt
 
 object TimerNotifier {
     const val ACTION_STOP = "app.tick.kimai.action.STOP"
     const val ACTION_DISMISSED = "app.tick.kimai.action.DISMISSED"
     private const val CHANNEL = "timer"
 
-    // Android 16 "Live Updates" (shown in Samsung's Now Bar). Set as raw extras so
-    // we do not need compileSdk 36. Older Android versions ignore them.
-    private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
     internal const val ID = 1
 
     /**
@@ -96,19 +92,20 @@ object TimerNotifier {
             .setSmallIcon(R.drawable.ic_stat_timer)
             .setContentTitle(s.project.ifBlank { context.getString(R.string.timer_running) })
             .setContentText(detail)
-            .setUsesChronometer(true)
             .setShowWhen(true)
             .setWhen(s.beginMillis)
             .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // Live Update (Android 16, Samsung Now Bar). The chip shows this text, which is only
+            // as fresh as the last sync; a system chronometer jams against the title on One UI.
+            .setRequestPromotedOngoing(true)
+            .setShortCriticalText(Fmt.elapsed(((System.currentTimeMillis() - s.beginMillis) / 1000).coerceAtLeast(0)))
+            .setStyle(NotificationCompat.ProgressStyle().setProgressIndeterminate(true))
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .setDeleteIntent(dismissed)
             .addAction(0, context.getString(R.string.stop), stop)
-            .apply {
-                if (Build.VERSION.SDK_INT >= 36) {
-                    addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
-                }
-            }
             .build()
     }
 }

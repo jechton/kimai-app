@@ -23,20 +23,20 @@ Tick: an Android client for [Kimai](https://www.kimai.org) (Kotlin, Jetpack Comp
 This repo builds via Nix (NixOS-first); Android Studio is optional.
 
 ```sh
-nix develop                 # JDK 17 + Android SDK 35 + adb, aapt2 override set
+nix develop                 # JDK 17 + Android SDK 36 + adb, aapt2 override set
 ./gradlew assembleDebug     # APK: app/build/outputs/apk/debug/app-debug.apk
 ./gradlew installDebug      # with a device/emulator connected over adb
 ```
 
-With direnv: `direnv allow` instead of `nix develop`. First build needs network (downloads Gradle 8.10.2 and Maven deps).
+With direnv: `direnv allow` instead of `nix develop`. First build needs network (downloads Gradle 8.11.1 and Maven deps).
 
 Unit tests (JUnit, pure JVM) live in `app/src/test`; run `./gradlew testDebugUnitTest`. They cover the pace logic in `data/Models.kt`.
 
 ### NixOS specifics
 
-- AGP downloads its own `aapt2`, which is dynamically linked and fails on NixOS. The dev shell sets `GRADLE_OPTS` to point at the Nix-provided `aapt2` instead. Outside the shell: `./gradlew assembleDebug -Pandroid.aapt2FromMavenOverride=$ANDROID_HOME/build-tools/35.0.0/aapt2`.
+- AGP downloads its own `aapt2`, which is dynamically linked and fails on NixOS. The dev shell sets `GRADLE_OPTS` to point at the Nix-provided `aapt2` instead. Outside the shell: `./gradlew assembleDebug -Pandroid.aapt2FromMavenOverride=$ANDROID_HOME/build-tools/36.0.0/aapt2`.
 - If `flake.nix` bumps `buildToolsVersion`, change it in `app/build.gradle.kts` too (there's a comment marking both spots).
-- `flake.nix`'s `androidComposition` includes the emulator and an x86_64 `google_apis_playstore` system image for `android-35`, so an AVD can be created and run from the dev shell:
+- `flake.nix`'s `androidComposition` includes the emulator and an x86_64 `google_apis_playstore` system image for `android-35` (plus `scripts/tick avd36`, an Android 16 image for Live Updates), so an AVD can be created and run from the dev shell:
   ```sh
   avdmanager create avd -n tick -k "system-images;android-35;google_apis_playstore;x86_64" -d pixel_6
   ANDROID_AVD_HOME=$HOME/.local/share/android/avd emulator -avd tick

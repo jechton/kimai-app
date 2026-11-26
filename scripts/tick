@@ -12,6 +12,8 @@ help() {
   tick install    ./gradlew installDebug      (phone or emulator connected over adb)
   tick avd        create the emulator once
   tick emulator   launch it
+  tick avd36      create an Android 16 emulator (Live Updates)
+  tick emulator36 launch it (port 5584)
   tick run        installDebug, then launch the app on the connected device
   tick release X.Y.Z   tag and push a release (CI builds and publishes it)
 EOF
@@ -27,6 +29,13 @@ case "${1:-}" in
   avd)
     avdmanager create avd -n tick \
       -k "system-images;android-35;google_apis_playstore;x86_64" -d pixel_6
+    ;;
+  avd36)
+    avdmanager create avd -n tick36 \
+      -k "system-images;android-36;google_apis_playstore;x86_64" -d pixel_6
+    ;;
+  emulator36)
+    ANDROID_AVD_HOME="$HOME/.local/share/android/avd" emulator -avd tick36 -port 5584 -memory 1536 -no-window -no-audio
     ;;
   emulator)
     ANDROID_AVD_HOME="$HOME/.local/share/android/avd" emulator -avd tick -memory 1536

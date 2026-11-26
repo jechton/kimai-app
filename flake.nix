@@ -18,11 +18,12 @@
         };
 
         # Keep in sync with compileSdk / buildToolsVersion in app/build.gradle.kts
-        platformVersion = "35";
-        buildToolsVersion = "35.0.0";
+        platformVersion = "36";
+        buildToolsVersion = "36.0.0";
 
         androidComposition = pkgs.androidenv.composeAndroidPackages {
-          platformVersions = [ platformVersion ];
+          # 35 stays for the existing "tick" emulator image.
+          platformVersions = [ platformVersion "35" ];
           buildToolsVersions = [ buildToolsVersion ];
           includeEmulator = true;
           includeSystemImages = true;
