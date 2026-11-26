@@ -117,7 +117,7 @@ class TickWidget : GlanceAppWidget() {
             }
         val weekFraction =
             weekTotals?.takeIf { it.targetSeconds > 0 }?.let { it.total(state).toFloat() / it.targetSeconds }
-        val info = weekTotals?.let { weekInfo(prefs, state, it) }
+        val info = weekTotals?.let { weekInfo(context, prefs, state, it) }
         provideContent {
             val opacity = currentState(OPACITY_KEY) ?: 1f
             val showWeek = currentState(SHOW_WEEK_KEY) ?: true
@@ -262,7 +262,7 @@ private fun WidgetContent(
                 )
                 if (pay != null && size.width >= LARGE.width) {
                     Text(
-                        text = "Est. $pay",
+                        text = context.getString(R.string.est_short, pay),
                         maxLines = 1,
                         style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
                     )
@@ -305,11 +305,11 @@ private fun WidgetContent(
         Button(
             text =
                 if (s.running) {
-                    "Stop"
+                    context.getString(R.string.stop)
                 } else if (size.width >= LARGE.width) {
-                    "Start last"
+                    context.getString(R.string.start_last)
                 } else {
-                    "Start"
+                    context.getString(R.string.start)
                 },
             onClick = actionRunCallback<ToggleAction>(),
             modifier = GlanceModifier.fillMaxWidth(),
@@ -389,6 +389,7 @@ private data class WeekInfo(val pace: PaceStatus?, val pay: String?, val days: L
 
 /** Works out the pace line, estimated pay and per-day bars from what the last sync cached. */
 private fun weekInfo(
+    context: Context,
     prefs: Prefs,
     timer: TimerState,
     totals: WeekTotals,
@@ -421,7 +422,7 @@ private fun weekInfo(
     val doneToday = done[idx]
     val plan = totals.pacePlan(detail.start, today, total - doneToday, doneToday)
     val goals = totals.dayGoals(detail.start, today, total - doneToday, doneToday)
-    val pace = plan?.status(totals.targetSeconds - total, doneToday)
+    val pace = plan?.status(context, totals.targetSeconds - total, doneToday)
     val days =
         goals?.mapIndexed { i, goal ->
             val met = goal > 0 && done[i] >= goal - 59

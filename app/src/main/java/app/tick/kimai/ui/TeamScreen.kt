@@ -33,8 +33,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.tick.kimai.MainViewModel
+import app.tick.kimai.R
 import app.tick.kimai.UiState
 import app.tick.kimai.data.User
 import app.tick.kimai.util.Fmt
@@ -54,17 +57,17 @@ fun TeamScreen(
     LaunchedEffect(byTime) { listState.scrollToItem(0) }
     val weekLabel =
         when (ui.teamOffset) {
-            0 -> "This week"
-            -1 -> "Last week"
-            else -> "${-ui.teamOffset} weeks ago"
+            0 -> stringResource(R.string.this_week)
+            -1 -> stringResource(R.string.last_week)
+            else -> pluralStringResource(R.plurals.weeks_ago, -ui.teamOffset, -ui.teamOffset)
         }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Team") },
+                title = { Text(stringResource(R.string.team)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
             )
@@ -77,21 +80,35 @@ fun TeamScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { vm.loadTeam(ui.teamOffset - 1) }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous week")
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = stringResource(R.string.previous_week),
+                    )
                 }
                 Text(weekLabel, style = MaterialTheme.typography.titleMedium)
                 IconButton(onClick = { vm.loadTeam(ui.teamOffset + 1) }, enabled = ui.teamOffset < 0) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next week")
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(R.string.next_week),
+                    )
                 }
             }
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = byTime, onClick = { byTime = true }, label = { Text("Most hours") })
-                FilterChip(selected = !byTime, onClick = { byTime = false }, label = { Text("A to Z") })
+                FilterChip(
+                    selected = byTime,
+                    onClick = { byTime = true },
+                    label = { Text(stringResource(R.string.team_most_hours)) },
+                )
+                FilterChip(
+                    selected = !byTime,
+                    onClick = { byTime = false },
+                    label = { Text(stringResource(R.string.team_a_to_z)) },
+                )
             }
             HorizontalDivider()
             val total = ui.team.sumOf { it.doneSeconds }
             ListItem(
-                headlineContent = { Text("Everyone") },
+                headlineContent = { Text(stringResource(R.string.team_everyone)) },
                 trailingContent = { Text(Fmt.hoursMinutes(total), style = MaterialTheme.typography.titleMedium) },
             )
             HorizontalDivider()
@@ -105,7 +122,18 @@ fun TeamScreen(
                 items(rows, key = { it.user.id }) { row ->
                     ListItem(
                         headlineContent = { Text(row.user.display) },
-                        supportingContent = if (row.running) ({ Text("Timer running") }) else null,
+                        supportingContent =
+                            if (row.running) {
+                                (
+                                    {
+                                        Text(
+                                            stringResource(R.string.timer_running),
+                                        )
+                                    }
+                                )
+                            } else {
+                                null
+                            },
                         trailingContent = { Text(Fmt.hoursMinutes(row.doneSeconds)) },
                         modifier = Modifier.clickable { onOpen(row.user) },
                     )

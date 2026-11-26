@@ -156,28 +156,28 @@ private fun ConfigScreen(
             Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 0f..1f, steps = 9)
 
             Spacer(modifier = Modifier.height(8.dp))
-            SettingSwitch("Show week summary", showWeek) { showWeek = it }
+            SettingSwitch(stringResource(R.string.widget_show_week), showWeek) { showWeek = it }
             if (showWeek) {
-                SettingSwitch("Show on-pace line", showPace) { showPace = it }
-                SettingSwitch("Show estimated pay", showPay) { showPay = it }
-                SettingSwitch("Show week goal bars (tall widgets)", bars) { bars = it }
+                SettingSwitch(stringResource(R.string.widget_show_pace), showPace) { showPace = it }
+                SettingSwitch(stringResource(R.string.widget_show_pay), showPay) { showPay = it }
+                SettingSwitch(stringResource(R.string.widget_show_bars), bars) { bars = it }
             }
-            SettingSwitch("Show recent entries", showRecent) { showRecent = it }
-            SettingSwitch("Tap widget to start or stop", tapToggle) { tapToggle = it }
+            SettingSwitch(stringResource(R.string.widget_show_recent), showRecent) { showRecent = it }
+            SettingSwitch(stringResource(R.string.widget_tap_toggle), tapToggle) { tapToggle = it }
 
             if (showRecent) {
                 RadioGroup(
-                    "Recent entries to list",
-                    listOf(3 to "3", 5 to "5", 10 to "10", 0 to "All cached"),
+                    stringResource(R.string.widget_recent_count),
+                    listOf(3 to "3", 5 to "5", 10 to "10", 0 to stringResource(R.string.widget_all_cached)),
                     recentCount,
                 ) { recentCount = it }
             }
             RadioGroup(
-                "Widget theme",
+                stringResource(R.string.widget_theme),
                 listOf(
-                    TickWidget.THEME_MODE_AUTO to "Auto (follow system)",
-                    TickWidget.THEME_MODE_LIGHT to "Light",
-                    TickWidget.THEME_MODE_DARK to "Dark",
+                    TickWidget.THEME_MODE_AUTO to stringResource(R.string.widget_theme_auto),
+                    TickWidget.THEME_MODE_LIGHT to stringResource(R.string.widget_theme_light),
+                    TickWidget.THEME_MODE_DARK to stringResource(R.string.widget_theme_dark),
                 ),
                 themeMode,
             ) { themeMode = it }

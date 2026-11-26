@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -398,14 +399,17 @@ private fun HomeScreen(
                     navigationIcon = {
                         if (ui.viewing != null) {
                             IconButton(onClick = leaveViewing) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.back),
+                                )
                             }
                         }
                     },
                     actions = {
                         if (ui.viewing == null) {
                             IconButton(onClick = { adding = true }) {
-                                Icon(Icons.Default.Add, contentDescription = "Add past entry")
+                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_past_entry))
                             }
                         }
                         if (ui.canViewOthers) {
@@ -415,11 +419,11 @@ private fun HomeScreen(
                                     vm.loadTeam(0)
                                 },
                             ) {
-                                Icon(Icons.Default.People, contentDescription = "Team overview")
+                                Icon(Icons.Default.People, contentDescription = stringResource(R.string.team_overview))
                             }
                         }
                         IconButton(onClick = { showSettings = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                            Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
                         }
                     },
                 )
@@ -439,16 +443,16 @@ private fun HomeScreen(
                                 .padding(start = 16.dp),
                     ) {
                         Text(
-                            "Update available: ${ui.update?.version}",
+                            stringResource(R.string.update_available, ui.update?.version.orEmpty()),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = vm::openUpdate) { Text("Update") }
+                        TextButton(onClick = vm::openUpdate) { Text(stringResource(R.string.update)) }
                         IconButton(onClick = vm::dismissUpdate) {
                             Icon(
                                 Icons.Default.Close,
-                                contentDescription = "Dismiss",
+                                contentDescription = stringResource(R.string.dismiss),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                         }
@@ -456,7 +460,7 @@ private fun HomeScreen(
                 }
                 if (ui.pending > 0) {
                     Text(
-                        if (ui.pending == 1) "1 change waiting to sync" else "${ui.pending} changes waiting to sync",
+                        pluralStringResource(R.plurals.pending_changes, ui.pending, ui.pending),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier =
@@ -516,7 +520,7 @@ private fun HomeScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
                                     Text(
-                                        Fmt.dayLabel(day),
+                                        Fmt.dayLabel(context, day),
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.primary,
                                     )
@@ -624,10 +628,14 @@ private fun HomeScreen(
     if (showStripDialog) {
         AlertDialog(
             onDismissRequest = { showStripDialog = false },
-            title = { Text("Week goals view") },
+            title = { Text(stringResource(R.string.week_goals_view)) },
             text = {
                 Column {
-                    listOf(0 to "Full", 1 to "Compact", 2 to "Hidden").forEach { (mode, label) ->
+                    listOf(
+                        0 to stringResource(R.string.strip_full),
+                        1 to stringResource(R.string.strip_compact),
+                        2 to stringResource(R.string.strip_hidden),
+                    ).forEach { (mode, label) ->
                         Row(
                             modifier =
                                 Modifier
@@ -650,7 +658,11 @@ private fun HomeScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showStripDialog = false }) { Text("Close") } },
+            confirmButton = {
+                TextButton(
+                    onClick = { showStripDialog = false },
+                ) { Text(stringResource(R.string.close)) }
+            },
         )
     }
 
@@ -697,6 +709,7 @@ private fun HomeScreen(
 }
 
 /** Shows which day Kimai says the week starts on, so a wrong week is easy to trace. */
+@Composable
 internal fun weekStartLabel(firstWeekday: String): String {
     val day = runCatching { DayOfWeek.valueOf(firstWeekday.uppercase()) }.getOrNull()
     val name = (day ?: DayOfWeek.MONDAY).getDisplayName(TextStyle.FULL, Locale.getDefault())
@@ -723,13 +736,13 @@ private fun WeekTargetDialog(
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("Hours per week") },
-                    supportingText = { Text("Leave empty to use your Kimai contract") },
+                    label = { Text(stringResource(R.string.hours_per_week)) },
+                    supportingText = { Text(stringResource(R.string.weekly_target_hint)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text("Days you work", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.days_you_work), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     // Start on the week's first day, like the goals under the pace line.
                     val first =
@@ -746,15 +759,14 @@ private fun WeekTargetDialog(
                     }
                 }
                 Text(
-                    "Used for the on-pace line. Overrides the per-day hours in your Kimai contract. " +
-                        "None selected uses those hours if Kimai has them, otherwise every day.",
+                    stringResource(R.string.days_you_work_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(parseDecimal(text), days) }) { Text("Save") }
+            TextButton(onClick = { onSave(parseDecimal(text), days) }) { Text(stringResource(R.string.save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
@@ -901,7 +913,7 @@ private fun WeekGoals(
                 }
                 // Hours worked over a divider, the goal underneath: reads as "worked of goal".
                 Text(
-                    if (goals[i] == 0L && done[i] == 0L) "off" else Fmt.narrow(done[i]),
+                    if (goals[i] == 0L && done[i] == 0L) stringResource(R.string.goal_off) else Fmt.narrow(done[i]),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (i == todayIdx) FontWeight.Bold else FontWeight.Normal,
                     textAlign = TextAlign.Center,
@@ -936,6 +948,7 @@ private fun WeekSummary(
     strip: Int,
     onShow: (Int) -> Unit,
 ) {
+    val context = LocalContext.current
     // Ticks each minute so the total and "today" stay current while the screen is open, even past midnight.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -1006,7 +1019,7 @@ private fun WeekSummary(
                 val netPay = grossPay * (1 - payTaxPercent / 100.0)
                 val currency = remember { NumberFormat.getCurrencyInstance() }
                 Text(
-                    "Est. ${currency.format(netPay)}",
+                    stringResource(R.string.est_short, currency.format(netPay)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1042,7 +1055,7 @@ private fun WeekSummary(
             val plan = if (start != null) week.pacePlan(start, today, total - doneToday, doneToday) else null
             if (plan != null) {
                 val weekLeft = week.targetSeconds - total
-                val pace = plan.status(weekLeft, doneToday)
+                val pace = plan.status(context, weekLeft, doneToday)
                 val message = pace.message
                 val tint =
                     when (pace.state) {
@@ -1070,9 +1083,13 @@ private fun WeekSummary(
                     Text(message, style = MaterialTheme.typography.bodyMedium, color = tint)
                 }
                 if (plan.laterDays > 0 && weekLeft >= 60) {
-                    val days = if (plan.laterDays == 1) "1 more work day" else "${plan.laterDays} more work days"
                     Text(
-                        "Then about ${Fmt.hoursMinutes(plan.laterPerDay)} a day for $days",
+                        pluralStringResource(
+                            R.plurals.pace_later,
+                            plan.laterDays,
+                            Fmt.hoursMinutes(plan.laterPerDay),
+                            plan.laterDays,
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1565,11 +1582,14 @@ private fun EntryRow(
                     if (!readOnly) {
                         Box {
                             IconButton(onClick = { menuOpen = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "Entry actions")
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = stringResource(R.string.entry_actions),
+                                )
                             }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
-                                    text = { Text("Start again") },
+                                    text = { Text(stringResource(R.string.start_again)) },
                                     leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false
@@ -1577,7 +1597,7 @@ private fun EntryRow(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Edit") },
+                                    text = { Text(stringResource(R.string.edit)) },
                                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false
@@ -1585,7 +1605,7 @@ private fun EntryRow(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Delete") },
+                                    text = { Text(stringResource(R.string.delete)) },
                                     leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false

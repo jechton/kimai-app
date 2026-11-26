@@ -110,4 +110,52 @@
         <item quantity="one">%d week ago</item>
         <item quantity="other">%d weeks ago</item>
     </plurals>
+
+    <!-- Settings, team, updates, pace and widget options -->
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="update">Update</string>
+    <string name="week_start">Week start</string>
+    <string name="week_goals_view">Week goals view</string>
+    <string name="strip_full">Full</string>
+    <string name="strip_compact">Compact</string>
+    <string name="strip_hidden">Hidden</string>
+    <string name="description_field">Description field</string>
+    <string name="description_field_hint">Show it when starting a timer</string>
+    <string name="check_updates">Check for updates</string>
+    <string name="check_updates_hint">On open, looks for a new Tick release on GitHub</string>
+    <string name="check_now">Check now</string>
+    <string name="update_version_available">%1$s available</string>
+    <string name="update_up_to_date">You\'re up to date</string>
+    <string name="update_available">Update available: %1$s</string>
+    <string name="update_permission">Android needs your OK to install apps from Tick. Allow it on the page that opened, go back, then tap Install again.</string>
+    <string name="update_install_hint">Tap Install. Android will ask you to confirm. Your data and settings are kept.</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_install">Install</string>
+    <string name="update_release_page">Release page</string>
+    <string name="team">Team</string>
+    <string name="team_overview">Team overview</string>
+    <string name="team_most_hours">Most hours</string>
+    <string name="team_a_to_z">A to Z</string>
+    <string name="team_everyone">Everyone</string>
+    <string name="pace_target_reached">Target reached</string>
+    <string name="pace_short">%1$s short, no work days left</string>
+    <string name="pace_more_today">%1$s more today to stay on pace</string>
+    <string name="pace_ahead">%1$s ahead of today\'s goal</string>
+    <string name="pace_on">On pace</string>
+    <plurals name="pace_later">
+        <item quantity="one">Then about %1$s a day for %2$d more work day</item>
+        <item quantity="other">Then about %1$s a day for %2$d more work days</item>
+    </plurals>
+    <string name="est_short">Est. %1$s</string>
+    <string name="goal_off">off</string>
+    <string name="days_you_work">Days you work</string>
+    <string name="days_you_work_hint">Used for the on-pace line. Overrides the per-day hours in your Kimai contract. None selected uses those hours if Kimai has them, otherwise every day.</string>
+    <string name="widget_show_pace">Show on-pace line</string>
+    <string name="widget_show_pay">Show estimated pay</string>
+    <string name="widget_show_bars">Show week goal bars (tall widgets)</string>
+    <string name="widget_tap_toggle">Tap widget to start or stop</string>
+    <string name="widget_recent_count">Recent entries to list</string>
+    <string name="widget_all_cached">All cached</string>
 </resources>

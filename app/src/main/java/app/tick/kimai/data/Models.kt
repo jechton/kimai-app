@@ -1,5 +1,7 @@
 package app.tick.kimai.data
 
+import android.content.Context
+import app.tick.kimai.R
 import app.tick.kimai.util.Fmt
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -186,17 +188,18 @@ data class PaceStatus(val message: String, val state: PaceState)
  * Under a minute either way counts as on pace, since the text only shows whole minutes.
  */
 fun PacePlan.status(
+    context: Context,
     weekLeft: Long,
     doneToday: Long,
 ): PaceStatus {
     val todayLeft = todayGoal - doneToday
     val message =
         when {
-            weekLeft < 60 -> "Target reached"
-            !hasWorkLeft -> "${Fmt.hoursMinutes(weekLeft)} short, no work days left"
-            todayLeft >= 60 -> "${Fmt.hoursMinutes(todayLeft)} more today to stay on pace"
-            todayLeft <= -60 -> "${Fmt.hoursMinutes(-todayLeft)} ahead of today's goal"
-            else -> "On pace"
+            weekLeft < 60 -> context.getString(R.string.pace_target_reached)
+            !hasWorkLeft -> context.getString(R.string.pace_short, Fmt.hoursMinutes(weekLeft))
+            todayLeft >= 60 -> context.getString(R.string.pace_more_today, Fmt.hoursMinutes(todayLeft))
+            todayLeft <= -60 -> context.getString(R.string.pace_ahead, Fmt.hoursMinutes(-todayLeft))
+            else -> context.getString(R.string.pace_on)
         }
     // Green once today's goal is met, neutral while today's work is still to do, and red when earlier days
     // were missed and today's catch-up isn't done (or no days are left).
