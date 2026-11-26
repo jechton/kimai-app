@@ -176,6 +176,9 @@ data class PacePlan(
     val hasWorkLeft: Boolean,
     val laterDays: Int,
     val laterPerDay: Long,
+    /** Even-pace hours due by the end of today, and what was done before today began. */
+    val dueThroughToday: Long = 0,
+    val doneBeforeToday: Long = 0,
 )
 
 enum class PaceState { MET, MISSED, PENDING }
@@ -193,10 +196,15 @@ fun PacePlan.status(
     doneToday: Long,
 ): PaceStatus {
     val todayLeft = todayGoal - doneToday
+    // Behind the even schedule, even if the catch-up plan for today is met. Spreading missed hours over
+    // later days must not turn this into "On pace".
+    val behind = dueThroughToday - doneBeforeToday - doneToday
+    val stillBehind = weekLeft >= 60 && missedBefore >= 60 && behind >= 60
     val message =
         when {
             weekLeft < 60 -> context.getString(R.string.pace_target_reached)
             !hasWorkLeft -> context.getString(R.string.pace_short, Fmt.hoursMinutes(weekLeft))
+            stillBehind -> "${Fmt.hoursMinutes(behind)} behind pace"
             todayLeft >= 60 -> context.getString(R.string.pace_more_today, Fmt.hoursMinutes(todayLeft))
             todayLeft <= -60 -> context.getString(R.string.pace_ahead, Fmt.hoursMinutes(-todayLeft))
             else -> context.getString(R.string.pace_on)
@@ -204,7 +212,7 @@ fun PacePlan.status(
     // Green once today's goal is met, neutral while today's work is still to do, and red when earlier days
     // were missed and today's catch-up isn't done (or no days are left).
     val met = weekLeft < 60 || todayLeft < 60
-    val missed = weekLeft >= 60 && (!hasWorkLeft || (missedBefore >= 60 && !met))
+    val missed = weekLeft >= 60 && (!hasWorkLeft || stillBehind || (missedBefore >= 60 && !met))
     return PaceStatus(
         message,
         when {
@@ -246,12 +254,15 @@ data class WeekTotals(
         val remaining = (targetSeconds - doneBeforeToday).coerceAtLeast(0)
         val workLeft = paceWeights.drop(idx).sum()
         val dueBefore = targetSeconds * paceWeights.take(idx).sum() / sum
+        val dueThrough = targetSeconds * paceWeights.take(idx + 1).sum() / sum
         val todayGoal = if (workLeft > 0) remaining * paceWeights[idx] / workLeft else 0L
         val laterDays = paceWeights.drop(idx + 1).count { it > 0 }
         return PacePlan(
             todayGoal = todayGoal,
             missedBefore = (dueBefore - doneBeforeToday).coerceAtLeast(0),
             hasWorkLeft = workLeft > 0,
+            dueThroughToday = dueThrough,
+            doneBeforeToday = doneBeforeToday,
             laterDays = laterDays,
             laterPerDay =
                 if (laterDays > 0) (remaining - maxOf(todayGoal, doneToday)).coerceAtLeast(0) / laterDays else 0L,
