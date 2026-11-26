@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Tick: an Android client for [Kimai](https://www.kimai.org) (Kotlin, Jetpack Compose, Material 3 with dynamic color).
 
 - Start/stop timers, pick project and activity, add a description
-- Ongoing notification with a live chronometer and a Stop button
+- Ongoing notification with a live chronometer and a Stop button; on Android 16+ it asks to be promoted to a Live Update (Samsung Now Bar) via raw extras in `TimerNotifier`
 - Recent entries grouped by day: start again, edit (description, start/end date and time), delete; edit a running entry without stopping it
 - Add a past entry directly (project, activity, description, start, end)
 - Weekly hours with a target progress bar, per-day totals, week navigation; estimated pay (Kimai rates or an in-app hourly rate, minus optional tax)

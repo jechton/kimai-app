@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import app.tick.kimai.MainActivity
@@ -16,6 +18,10 @@ object TimerNotifier {
     const val ACTION_STOP = "app.tick.kimai.action.STOP"
     const val ACTION_DISMISSED = "app.tick.kimai.action.DISMISSED"
     private const val CHANNEL = "timer"
+
+    // Android 16 "Live Updates" (shown in Samsung's Now Bar). Set as raw extras so
+    // we do not need compileSdk 36. Older Android versions ignore them.
+    private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
     internal const val ID = 1
 
     /**
@@ -94,6 +100,11 @@ object TimerNotifier {
             .setContentIntent(open)
             .setDeleteIntent(dismissed)
             .addAction(0, "Stop", stop)
+            .apply {
+                if (Build.VERSION.SDK_INT >= 36) {
+                    addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
+                }
+            }
             .build()
     }
 }
