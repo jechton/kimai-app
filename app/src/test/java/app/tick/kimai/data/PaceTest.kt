@@ -67,4 +67,32 @@ class PaceTest {
         assertNull(week.pacePlan(monday, monday.plusDays(7), 0))
         assertNull(week.copy(targetSeconds = 0).pacePlan(monday, wednesday, 0))
     }
+
+    @Test
+    fun `day goals on schedule are even`() {
+        assertEquals(listOf(8 * H, 8 * H, 8 * H, 8 * H, 8 * H, 0, 0), week.dayGoals(monday, wednesday, 16 * H))
+    }
+
+    @Test
+    fun `day goals spread a missed day over today and later work days`() {
+        val share = 32 * H / 3
+        assertEquals(listOf(8 * H, 8 * H, share, share, share, 0, 0), week.dayGoals(monday, wednesday, 8 * H))
+    }
+
+    @Test
+    fun `hours worked past today's goal come off later days`() {
+        val goals = week.dayGoals(monday, wednesday, 16 * H, doneToday = 10 * H)
+        assertEquals(listOf(8 * H, 8 * H, 8 * H, 7 * H, 7 * H, 0, 0), goals)
+    }
+
+    @Test
+    fun `today's day goal matches the pace plan`() {
+        val plan = week.pacePlan(monday, wednesday, 8 * H)!!
+        assertEquals(plan.todayGoal, week.dayGoals(monday, wednesday, 8 * H)!![2])
+    }
+
+    @Test
+    fun `no day goals outside the current week`() {
+        assertNull(week.dayGoals(monday, monday.plusDays(7), 0))
+    }
 }
