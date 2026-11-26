@@ -18,14 +18,10 @@
     <string name="battery_text">Die Akku-Optimierung von Android kann die Hintergrundprüfung auf anderswo gestartete Timer verzögern oder auslassen. Nimmst du Tick davon aus, bleiben Benachrichtigung und Widget aktuell.</string>
     <string name="battery_turn_off">Ausschalten</string>
     <string name="not_now">Nicht jetzt</string>
-    <string name="refresh">Aktualisieren</string>
-    <string name="more">Mehr</string>
     <string name="time_format">Zeitformat</string>
     <string name="weekly_target">Wochenziel</string>
     <string name="pay_rate_tax">Stundensatz &amp; Steuer</string>
     <string name="start_presets">Startzeit-Vorgaben</string>
-    <string name="show_description_field">Beschreibungsfeld anzeigen</string>
-    <string name="hide_description_field">Beschreibungsfeld ausblenden</string>
     <string name="minutes_ago">Minuten zurück</string>
     <string name="presets_hint">Bis zu 3 Zahlen, z. B. 5, 15, 30. Leer setzt zurück.</string>
     <string name="minutes_ago_short">vor %1$d min</string>
@@ -57,15 +53,12 @@
     <string name="previous_week">Vorherige Woche</string>
     <string name="next_week">Nächste Woche</string>
     <string name="week_progress">%1$s von %2$s</string>
-    <string name="est_pay">Geschätzter Verdienst: %1$s</string>
     <string name="edit_running_entry">Laufenden Eintrag bearbeiten</string>
     <string name="started_at">Gestartet %1$s</string>
     <string name="stop">Stopp</string>
     <string name="start">Start</string>
     <string name="start_last">Letzten starten</string>
     <string name="start_again">Erneut starten</string>
-    <string name="start_again_label">Erneut starten: %1$s</string>
-    <string name="start_something_new">oder etwas Neues starten</string>
     <string name="project">Projekt</string>
     <string name="project_fallback">Projekt %1$d</string>
     <string name="activity">Tätigkeit</string>
@@ -158,4 +151,6 @@
     <string name="widget_tap_toggle">Tippen aufs Widget startet oder stoppt</string>
     <string name="widget_recent_count">Anzahl letzter Einträge</string>
     <string name="widget_all_cached">Alle gespeicherten</string>
+    <string name="error_update_check">Updates konnten nicht geprüft werden</string>
+    <string name="error_update_download">Update konnte nicht heruntergeladen werden</string>
 </resources>

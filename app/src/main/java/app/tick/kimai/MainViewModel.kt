@@ -387,7 +387,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (manual) _ui.update { it.copy(error = "Couldn't check for updates") }
+                if (manual) _ui.update { it.copy(error = app.getString(R.string.error_update_check)) }
             }
         }
     }
@@ -418,7 +418,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _ui.update { it.copy(error = "Couldn't download the update") }
+                _ui.update { it.copy(error = app.getString(R.string.error_update_download)) }
             } finally {
                 _ui.update { it.copy(updateDownloading = false) }
             }

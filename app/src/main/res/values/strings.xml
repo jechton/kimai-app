@@ -18,14 +18,10 @@
     <string name="battery_text">Android\'s battery optimization can delay or skip the background check for timers started elsewhere. Exempting Tick keeps the notification and widget in sync.</string>
     <string name="battery_turn_off">Turn off</string>
     <string name="not_now">Not now</string>
-    <string name="refresh">Refresh</string>
-    <string name="more">More</string>
     <string name="time_format">Time format</string>
     <string name="weekly_target">Weekly target</string>
     <string name="pay_rate_tax">Pay rate &amp; tax</string>
     <string name="start_presets">Start presets</string>
-    <string name="show_description_field">Show description field</string>
-    <string name="hide_description_field">Hide description field</string>
     <string name="minutes_ago">Minutes ago</string>
     <string name="presets_hint">Up to 3 numbers, e.g. 5, 15, 30. Empty resets.</string>
     <string name="minutes_ago_short">%1$dm ago</string>
@@ -57,15 +53,12 @@
     <string name="previous_week">Previous week</string>
     <string name="next_week">Next week</string>
     <string name="week_progress">%1$s of %2$s</string>
-    <string name="est_pay">Est. pay: %1$s</string>
     <string name="edit_running_entry">Edit running entry</string>
     <string name="started_at">Started %1$s</string>
     <string name="stop">Stop</string>
     <string name="start">Start</string>
     <string name="start_last">Start last</string>
     <string name="start_again">Start again</string>
-    <string name="start_again_label">Start again: %1$s</string>
-    <string name="start_something_new">or start something new</string>
     <string name="project">Project</string>
     <string name="project_fallback">Project %1$d</string>
     <string name="activity">Activity</string>
@@ -158,4 +151,6 @@
     <string name="widget_tap_toggle">Tap widget to start or stop</string>
     <string name="widget_recent_count">Recent entries to list</string>
     <string name="widget_all_cached">All cached</string>
+    <string name="error_update_check">Couldn\'t check for updates</string>
+    <string name="error_update_download">Couldn\'t download the update</string>
 </resources>
