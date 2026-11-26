@@ -116,8 +116,8 @@ object TimerNotifier {
     }
 
     /**
-     * The progress bar: hours worked this week (running timer included) out of the week target.
-     * Without a target it is an indeterminate bar.
+     * The progress bar: one segment per work day of the week target, filled by the week total
+     * (running timer included). Without a target or a current-week pace it is an indeterminate bar.
      */
     private fun progressStyle(
         context: Context,
@@ -125,9 +125,14 @@ object TimerNotifier {
     ): NotificationCompat.ProgressStyle {
         val style = NotificationCompat.ProgressStyle()
         val totals = Prefs(context).weekTotals()
-        if (totals == null || totals.targetSeconds <= 0) return style.setProgressIndeterminate(true)
-        val max = totals.targetSeconds.toInt()
-        style.addProgressSegment(NotificationCompat.ProgressStyle.Segment(max))
+        val weights = totals?.paceWeights.orEmpty()
+        val sum = weights.sum()
+        if (totals == null || totals.targetSeconds <= 0 || weights.size != 7 || sum <= 0) {
+            return style.setProgressIndeterminate(true)
+        }
+        val segments = weights.filter { it > 0 }.map { (totals.targetSeconds * it / sum).toInt().coerceAtLeast(1) }
+        val max = segments.sum()
+        segments.forEach { style.addProgressSegment(NotificationCompat.ProgressStyle.Segment(it)) }
         style.setProgress(totals.total(s).coerceIn(0, max.toLong()).toInt())
         return style.setProgressIndeterminate(false)
     }
