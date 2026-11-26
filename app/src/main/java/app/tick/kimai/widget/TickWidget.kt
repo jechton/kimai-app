@@ -285,12 +285,7 @@ private fun WidgetContent(
             )
         }
         if (pace != null && size.height >= LARGE.height) {
-            val tint =
-                when (pace.state) {
-                    PaceState.MISSED -> GlanceTheme.colors.error
-                    PaceState.MET -> GlanceTheme.colors.primary
-                    PaceState.PENDING -> GlanceTheme.colors.onSurfaceVariant
-                }
+            val tint = pace.state.tint()
             Text(
                 text = Fmt.paceText(context, pace.message),
                 maxLines = 1,
@@ -452,17 +447,21 @@ private fun weekInfo(
     return WeekInfo(pace, pay, days)
 }
 
+/** Red when missed, green when met, neutral while still to do. */
+@Composable
+private fun PaceState.tint() =
+    when (this) {
+        PaceState.MISSED -> GlanceTheme.colors.error
+        PaceState.MET -> GlanceTheme.colors.primary
+        PaceState.PENDING -> GlanceTheme.colors.onSurfaceVariant
+    }
+
 @Composable
 private fun WeekStrip(days: List<DayBar>) {
     val barHeight = 22.dp
     Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 6.dp)) {
         days.forEach { d ->
-            val color =
-                when (d.state) {
-                    PaceState.MISSED -> GlanceTheme.colors.error
-                    PaceState.MET -> GlanceTheme.colors.primary
-                    PaceState.PENDING -> GlanceTheme.colors.onSurfaceVariant
-                }
+            val color = d.state.tint()
             Column(
                 modifier = GlanceModifier.defaultWeight(),
                 horizontalAlignment = Alignment.Horizontal.CenterHorizontally,

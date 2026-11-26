@@ -57,10 +57,7 @@ class TimerRepository(context: Context) {
     private fun api(): KimaiApi = apiOrNull() ?: throw NotSignedIn()
 
     /** Kimai reads and writes times in the user's configured timezone. */
-    private fun userZone(): ZoneId =
-        prefs.userTimezone.takeIf { it.isNotBlank() }
-            ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
-            ?: ZoneId.systemDefault()
+    private fun userZone(): ZoneId = Fmt.zoneOf(prefs.userTimezone)
 
     /** Kimai's first day of the week, or Monday when the server doesn't say. */
     private fun firstDay(): DayOfWeek =

@@ -55,14 +55,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,15 +75,11 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,7 +100,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -132,9 +124,6 @@ import java.text.NumberFormat
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
@@ -163,11 +152,6 @@ private fun ShowErrors(
         }
     }
 }
-
-/** Reads "1.5" or "1,5". Null when the text is empty or not a number. */
-private fun parseDecimal(text: String): Double? = text.replace(',', '.').trim().toDoubleOrNull()
-
-private fun LocalDateTime.toMillis(zone: ZoneId): Long = atZone(zone).toInstant().toEpochMilli()
 
 // Sign in
 
@@ -716,141 +700,6 @@ internal fun weekStartLabel(firstWeekday: String): String {
     return stringResource(if (day != null) R.string.week_starts_kimai else R.string.week_starts_default, name)
 }
 
-@Composable
-private fun WeekTargetDialog(
-    currentSeconds: Long,
-    currentDays: Int,
-    firstWeekday: String,
-    onDismiss: () -> Unit,
-    onSave: (Double?, Int) -> Unit,
-) {
-    var text by remember {
-        mutableStateOf(if (currentSeconds > 0) (currentSeconds / 3600.0).toString().removeSuffix(".0") else "")
-    }
-    var days by remember { mutableIntStateOf(currentDays) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.weekly_target)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = { Text(stringResource(R.string.hours_per_week)) },
-                    supportingText = { Text(stringResource(R.string.weekly_target_hint)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(stringResource(R.string.days_you_work), style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    // Start on the week's first day, like the goals under the pace line.
-                    val first =
-                        runCatching { DayOfWeek.valueOf(firstWeekday.uppercase()) }
-                            .getOrDefault(DayOfWeek.MONDAY)
-                    (0L..6L).map { first.plus(it) }.forEach { d ->
-                        val bit = 1 shl (d.value - 1)
-                        FilterChip(
-                            selected = days and bit != 0,
-                            onClick = { days = days xor bit },
-                            label = { Text(d.getDisplayName(TextStyle.NARROW, Locale.getDefault())) },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-                Text(
-                    stringResource(R.string.days_you_work_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(parseDecimal(text), days) }) { Text(stringResource(R.string.save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
-@Composable
-private fun PresetsDialog(
-    current: List<Int>,
-    onDismiss: () -> Unit,
-    onSave: (List<Int>) -> Unit,
-) {
-    var text by remember { mutableStateOf(current.joinToString(", ")) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.start_presets)) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text(stringResource(R.string.minutes_ago)) },
-                supportingText = { Text(stringResource(R.string.presets_hint)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSave(
-                        text.split(
-                            Regex("\\D+"),
-                        ).mapNotNull { it.toIntOrNull() }.filter { it > 0 }.distinct().sorted().take(3),
-                    )
-                },
-            ) { Text(stringResource(R.string.save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
-@Composable
-private fun PayDialog(
-    currentRate: Float,
-    currentTaxPercent: Float,
-    onDismiss: () -> Unit,
-    onSave: (rate: Double?, taxPercent: Double?) -> Unit,
-) {
-    var rateText by remember { mutableStateOf(if (currentRate > 0) currentRate.toString() else "") }
-    var taxText by remember { mutableStateOf(if (currentTaxPercent > 0) currentTaxPercent.toString() else "") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.pay_rate_tax)) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = rateText,
-                    onValueChange = { rateText = it },
-                    label = { Text(stringResource(R.string.hourly_rate)) },
-                    supportingText = { Text(stringResource(R.string.hourly_rate_hint)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = taxText,
-                    onValueChange = { taxText = it },
-                    label = { Text(stringResource(R.string.tax_withheld)) },
-                    supportingText = { Text(stringResource(R.string.tax_hint)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onSave(parseDecimal(rateText), parseDecimal(taxText)) },
-            ) { Text(stringResource(R.string.save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
 /**
  * One column per day: a bar filled by hours tracked against that day's goal, the hours tracked,
  * and the goal. Past days show their even share; today and later days show the catch-up plan.
@@ -1179,12 +1028,7 @@ private fun TimerCard(
                 LaunchedEffect(ui.entries.isNotEmpty(), ui.projects.isNotEmpty()) { vm.selectLastUsed() }
                 ProjectActivityPickers(vm, ui)
                 if (!ui.hideDescription) {
-                    OutlinedTextField(
-                        value = ui.description,
-                        onValueChange = { vm.setDescription(it) },
-                        label = { Text(stringResource(R.string.description_optional)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    DescriptionField(ui.description, onChange = { vm.setDescription(it) })
                 }
                 val canStart = !ui.busy && ui.selectedProject != null && ui.selectedActivity != null
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1215,7 +1059,7 @@ private fun TimerCard(
 }
 
 @Composable
-private fun ProjectActivityPickers(
+internal fun ProjectActivityPickers(
     vm: MainViewModel,
     ui: UiState,
 ) {
@@ -1266,275 +1110,6 @@ private fun <T> Picker(
             }
         }
     }
-}
-
-// Edit entry
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EditEntryDialog(
-    entry: Entry,
-    showDescription: Boolean,
-    mode: Int,
-    onDismiss: () -> Unit,
-    onSave: (description: String, beginMillis: Long, endMillis: Long?) -> Unit,
-) {
-    val zone = remember { ZoneId.systemDefault() }
-    val running = entry.isRunning
-
-    var description by remember(entry.id) { mutableStateOf(entry.description.orEmpty()) }
-    var begin by remember(entry.id) {
-        mutableStateOf(Instant.ofEpochMilli(entry.beginMillis).atZone(zone).toLocalDateTime())
-    }
-    var end by remember(entry.id) {
-        mutableStateOf(
-            Instant.ofEpochMilli(entry.endMillis ?: entry.beginMillis).atZone(zone).toLocalDateTime(),
-        )
-    }
-    val valid = running || end.isAfter(begin)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_entry)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (showDescription) {
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text(stringResource(R.string.description)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                StartEndFields(
-                    begin,
-                    end,
-                    showEnd = !running,
-                    zone,
-                    mode,
-                    onBegin = { begin = it },
-                    onEnd = { end = it },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = valid,
-                onClick = { onSave(description, begin.toMillis(zone), if (running) null else end.toMillis(zone)) },
-            ) { Text(stringResource(R.string.save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
-/**
- * The Start and End rows (date and time buttons) with their pickers, shared by the add and edit dialogs.
- * Shows a warning when End is not after Start.
- */
-@Composable
-private fun StartEndFields(
-    begin: LocalDateTime,
-    end: LocalDateTime,
-    showEnd: Boolean,
-    zone: ZoneId,
-    mode: Int,
-    onBegin: (LocalDateTime) -> Unit,
-    onEnd: (LocalDateTime) -> Unit,
-) {
-    // Which picker is open: first = editing the start (true) or end (false), second = date (true) or time (false)
-    var picking by remember { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
-
-    // The Box keeps the picker dialog from adding a gap in the caller's Column.
-    Box {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            DateTimeRow(
-                label = stringResource(R.string.start),
-                value = begin,
-                zone = zone,
-                mode = mode,
-                onDate = { picking = true to true },
-                onTime = { picking = true to false },
-            )
-            if (showEnd) {
-                DateTimeRow(
-                    label = stringResource(R.string.end),
-                    value = end,
-                    zone = zone,
-                    mode = mode,
-                    onDate = { picking = false to true },
-                    onTime = { picking = false to false },
-                )
-                if (!end.isAfter(begin)) {
-                    Text(
-                        stringResource(R.string.end_after_start),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        }
-
-        picking?.let { (isStart, isDate) ->
-            DateOrTimePicker(
-                current = if (isStart) begin else end,
-                isDate = isDate,
-                mode = mode,
-                onDismiss = { picking = null },
-                onPick = { picked ->
-                    if (isStart) onBegin(picked) else onEnd(picked)
-                    picking = null
-                },
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DateOrTimePicker(
-    current: LocalDateTime,
-    isDate: Boolean,
-    mode: Int,
-    onDismiss: () -> Unit,
-    onPick: (LocalDateTime) -> Unit,
-) {
-    val context = LocalContext.current
-    if (isDate) {
-        val state =
-            rememberDatePickerState(
-                // The date picker works in UTC midnight millis
-                initialSelectedDateMillis =
-                    current.toLocalDate()
-                        .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-            )
-        DatePickerDialog(
-            onDismissRequest = onDismiss,
-            confirmButton = {
-                TextButton(onClick = {
-                    val ms = state.selectedDateMillis
-                    if (ms != null) {
-                        val d = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
-                        onPick(current.with(d))
-                    } else {
-                        onDismiss()
-                    }
-                }) { Text(stringResource(R.string.ok)) }
-            },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-        ) {
-            DatePicker(state = state)
-        }
-    } else {
-        val state =
-            rememberTimePickerState(
-                initialHour = current.hour,
-                initialMinute = current.minute,
-                is24Hour = Fmt.is24(context, mode),
-            )
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-            modifier = Modifier.padding(16.dp),
-            text = { TimePicker(state = state) },
-            confirmButton = {
-                TextButton(onClick = {
-                    onPick(current.withHour(state.hour).withMinute(state.minute))
-                }) { Text(stringResource(R.string.ok)) }
-            },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
-}
-
-@Composable
-private fun DateTimeRow(
-    label: String,
-    value: LocalDateTime,
-    zone: ZoneId,
-    mode: Int,
-    onDate: () -> Unit,
-    onTime: () -> Unit,
-) {
-    val context = LocalContext.current
-    val date = value.toLocalDate()
-    // Short year form so it fits the button; omitted for the current year.
-    val datePattern = if (date.year == LocalDate.now(zone).year) "MMM d" else "MMM d ''yy"
-    val dateText = date.format(DateTimeFormatter.ofPattern(datePattern, Locale.getDefault()))
-    val timeText = Fmt.clock(context, value.toMillis(zone), mode)
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(label, modifier = Modifier.width(44.dp), style = MaterialTheme.typography.labelLarge)
-        OutlinedButton(
-            onClick = onDate,
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 8.dp),
-        ) { Text(dateText, maxLines = 1, softWrap = false) }
-        OutlinedButton(
-            onClick = onTime,
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 8.dp),
-        ) { Text(timeText, maxLines = 1) }
-    }
-}
-
-// Add entry (logging past time without starting/stopping a timer)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddEntryDialog(
-    vm: MainViewModel,
-    ui: UiState,
-    onDismiss: () -> Unit,
-    onSave: (projectId: Int, activityId: Int, description: String, beginMillis: Long, endMillis: Long) -> Unit,
-) {
-    val zone = remember { ZoneId.systemDefault() }
-    var description by remember { mutableStateOf("") }
-    var begin by remember { mutableStateOf(LocalDateTime.now(zone).minusHours(1)) }
-    var end by remember { mutableStateOf(LocalDateTime.now(zone)) }
-    val valid = ui.selectedProject != null && ui.selectedActivity != null && end.isAfter(begin)
-
-    LaunchedEffect(Unit) { vm.selectLastUsed() }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_entry)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ProjectActivityPickers(vm, ui)
-                if (!ui.hideDescription) {
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text(stringResource(R.string.description_optional)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                StartEndFields(
-                    begin,
-                    end,
-                    showEnd = true,
-                    zone,
-                    ui.timeMode,
-                    onBegin = { begin = it },
-                    onEnd = { end = it },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = valid,
-                onClick = {
-                    val project = ui.selectedProject!!
-                    val activity = ui.selectedActivity!!
-                    onSave(project.id, activity.id, description, begin.toMillis(zone), end.toMillis(zone))
-                },
-            ) { Text(stringResource(R.string.add)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
 }
 
 // Entries

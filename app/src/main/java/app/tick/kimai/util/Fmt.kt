@@ -91,6 +91,9 @@ object Fmt {
         return "%dh %02dm".format(m / 60, m % 60)
     }
 
+    /** The zone named by [id], or the device's when it is blank or unknown. */
+    fun zoneOf(id: String): ZoneId = runCatching { ZoneId.of(id) }.getOrDefault(ZoneId.systemDefault())
+
     fun localDate(
         millis: Long,
         zone: ZoneId = ZoneId.systemDefault(),
